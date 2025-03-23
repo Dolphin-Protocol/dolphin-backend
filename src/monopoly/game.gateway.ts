@@ -37,6 +37,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.emit('rooms', { rooms: await this.roomService.getRooms() });
   }
 
+  @SubscribeMessage('rooms')
+  async handleRooms(@ConnectedSocket() client: Socket) {
+    const rooms = await this.roomService.getRooms();
+    client.emit('rooms', { rooms });
+  }
+
   @SubscribeMessage('createRoom')
   async handleCreateRoom(
     @MessageBody()
