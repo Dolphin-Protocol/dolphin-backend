@@ -34,6 +34,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.roomService.leaveRoom({
       clientId: client.id,
     });
+    this.server.emit('rooms', { rooms: await this.roomService.getRooms() });
   }
 
   @SubscribeMessage('createRoom')
@@ -55,6 +56,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       address: data.address,
     });
     this.server.to(roomId).emit('roomCreated', { roomId });
+    this.server.emit('rooms', { rooms: await this.roomService.getRooms() });
   }
 
   @SubscribeMessage('joinRoom')
@@ -83,5 +85,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.roomService.leaveRoom({
       clientId: client.id,
     });
+    this.server.emit('rooms', { rooms: await this.roomService.getRooms() });
   }
 }
