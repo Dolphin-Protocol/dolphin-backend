@@ -22,10 +22,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  async handleConnection(client: Socket) {
-    console.log(`Client connected: ${client.id}`);
+  async emitRooms() {
     const rooms = await this.roomService.getRooms();
     this.server.emit('rooms', { rooms });
+  }
+
+  async handleConnection(client: Socket) {
+    console.log(`Client connected: ${client.id}`);
+    this.emitRooms();
   }
 
   async handleDisconnect(client: Socket) {
@@ -34,7 +38,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.roomService.leaveRoom({
       clientId: client.id,
     });
-    this.server.emit('rooms', { rooms: await this.roomService.getRooms() });
+    this.emitRooms();
   }
 
   @SubscribeMessage('rooms')
@@ -56,13 +60,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
     const roomId = uuidv4();
     client.join(roomId);
-    await this.roomService.createRoom({
+    const result = await this.roomService.createRoom({
       roomId,
       clientId: client.id,
       address: data.address,
     });
+    if (!result.success) {
+      this.server.to(roomId).emit('error', {
+        message: result.message,
+      });
+      return;
+    }
     this.server.to(roomId).emit('roomCreated', { roomId });
-    this.server.emit('rooms', { rooms: await this.roomService.getRooms() });
+    this.emitRooms();
   }
 
   @SubscribeMessage('joinRoom')
@@ -78,12 +88,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
     client.join(data.roomId);
-    await this.roomService.joinRoom({
+    const result = await this.roomService.joinRoom({
       roomId: data.roomId,
       clientId: client.id,
       address: data.address,
     });
+    if (!result.success) {
+      this.server.to(data.roomId).emit('error', {
+        message: result.message,
+      });
+      return;
+    }
     this.server.to(data.roomId).emit('userJoined', { address: data.address });
+    this.emitRooms();
   }
 
   @SubscribeMessage('leaveRoom')
@@ -91,6 +108,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.roomService.leaveRoom({
       clientId: client.id,
     });
-    this.server.emit('rooms', { rooms: await this.roomService.getRooms() });
+    this.emitRooms();
   }
 }

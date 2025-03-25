@@ -1,31 +1,46 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Room } from 'src/entity/monopoly/room.entity';
 import { Repository } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
+import { Room } from '../entity/monopoly/room.entity';
+import { RoomType } from './monopoly.type';
 @Injectable()
 export class RoomService {
   constructor(
     @InjectRepository(Room)
-    private roomRepository: Repository<Room>,
+    private readonly roomRepository: Repository<Room>,
   ) {}
-  async getRooms() {
+
+  async getRooms(): Promise<RoomType[]> {
     const roomMembers = await this.roomRepository.find({
       order: {
         createdAt: 'DESC',
       },
     });
-    const rooms = [];
+    const rooms: Record<string, RoomType> = {};
     roomMembers.forEach((roomMember) => {
-      if (rooms.find((room) => room.id === roomMember.id)) {
-        rooms
-          .find((room) => room.id === roomMember.id)
-          .members.push(roomMember.clientId);
-      } else {
-        rooms.push({ ...roomMember, members: [roomMember.clientId] });
-      }
+      rooms[roomMember.roomId] = {
+        roomId: roomMember.roomId,
+        members: rooms[roomMember.roomId]?.members
+          ? [
+              ...rooms[roomMember.roomId].members,
+              {
+                clientId: roomMember.clientId,
+                address: roomMember.address,
+                isCreator: roomMember.isCreator,
+              },
+            ]
+          : [
+              {
+                clientId: roomMember.clientId,
+                address: roomMember.address,
+                isCreator: roomMember.isCreator,
+              },
+            ],
+        createdAt: roomMember.createdAt,
+      };
     });
-    return rooms;
+    return Object.values(rooms);
   }
 
   async createRoom({
@@ -36,7 +51,25 @@ export class RoomService {
     roomId: string;
     clientId: string;
     address: string;
-  }) {
+  }): Promise<{ success: boolean; message: string }> {
+    if (!address) {
+      return {
+        success: false,
+        message: 'Address is required',
+      };
+    }
+    const clientMember = await this.roomRepository.find({
+      where: { clientId: clientId },
+    });
+    const addressMember = await this.roomRepository.find({
+      where: { address: address },
+    });
+    if (clientMember.length >= 1 || addressMember.length >= 1) {
+      return {
+        success: false,
+        message: 'You are already in a room',
+      };
+    }
     const room = this.roomRepository.create({
       id: uuidv4(),
       roomId,
@@ -45,7 +78,11 @@ export class RoomService {
       clientId,
       createdAt: new Date(),
     });
-    return await this.roomRepository.save(room);
+    await this.roomRepository.save(room);
+    return {
+      success: true,
+      message: 'Room created successfully',
+    };
   }
   async joinRoom({
     roomId,
@@ -55,25 +92,50 @@ export class RoomService {
     roomId: string;
     clientId: string;
     address: string;
-  }) {
+  }): Promise<{ success: boolean; message: string }> {
+    if (!roomId) {
+      return {
+        success: false,
+        message: 'Room ID is required',
+      };
+    }
+    if (!address) {
+      return {
+        success: false,
+        message: 'Address is required',
+      };
+    }
+
     const roomMembers = await this.roomRepository.find({
-      where: { id: roomId },
+      where: { roomId: roomId },
     });
-    if (roomMembers.length >= 4) {
-      throw new Error('Room is full');
+    const clientMember = roomMembers.find(
+      (roomMember) => roomMember.clientId === clientId,
+    );
+    const addressMember = roomMembers.find(
+      (roomMember) => roomMember.address === address,
+    );
+    if (clientMember || addressMember) {
+      return {
+        success: false,
+        message: 'You are already in this room',
+      };
     }
-    if (roomMembers.find((roomMember) => roomMember.clientId === clientId)) {
-      throw new Error('You are already in this room');
-    }
+
+    const roomCreator = roomMembers.find((roomMember) => roomMember.isCreator);
     const room = this.roomRepository.create({
       id: uuidv4(),
       roomId,
       address,
       isCreator: false,
       clientId,
-      createdAt: new Date(),
+      createdAt: roomCreator.createdAt,
     });
-    return await this.roomRepository.save(room);
+    await this.roomRepository.save(room);
+    return {
+      success: true,
+      message: 'Joined room successfully',
+    };
   }
 
   async leaveRoom({ clientId }: { clientId: string }) {

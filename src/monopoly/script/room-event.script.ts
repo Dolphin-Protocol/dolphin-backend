@@ -1,0 +1,34 @@
+import { io, Socket } from 'socket.io-client';
+const socketIO = io('http://localhost:3003');
+// const socketIO = io('http://5.183.11.9:3003');
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+socketIO.on('connection', (socket: Socket) => {
+  console.log('connected to server');
+});
+
+socketIO.on('roomCreated', (data) => {
+  console.log('roomCreated', data);
+});
+
+socketIO.on('userJoined', (data) => {
+  console.log('userJoined', data);
+});
+
+socketIO.on('rooms', (data) => {
+  //check if there are any rooms
+  console.log(data);
+  console.log(data.rooms?.[0]?.members);
+
+  // setRoomsState(data.rooms);
+});
+
+socketIO.on('error', (data) => {
+  console.log('error', data);
+});
+
+setTimeout(() => {
+  socketIO.emit('createRoom', {
+    address: '123',
+  });
+}, 1000);
