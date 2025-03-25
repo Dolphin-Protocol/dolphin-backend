@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import { RoomService } from './room.service';
+import { RoomType } from './monopoly.type';
 
 @WebSocketGateway({
   cors: {
@@ -34,11 +35,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleDisconnect(client: Socket) {
     console.log(`Client disconnected: ${client.id}`);
-
-    await this.roomService.leaveRoom({
+    const result = await this.roomService.leaveRoom({
       clientId: client.id,
     });
-    this.emitRooms();
+    if (result.success) {
+      const room = result.message as RoomType;
+      this.server.to(room.roomId).emit('userLeft', {
+        room: {
+          roomId: room.roomId,
+          members: room.members,
+          createdAt: room.createdAt,
+        },
+      });
+      this.emitRooms();
+    }
   }
 
   @SubscribeMessage('rooms')
@@ -66,12 +76,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       address: data.address,
     });
     if (!result.success) {
-      this.server.to(roomId).emit('error', {
+      client.emit('error', {
         message: result.message,
       });
       return;
     }
-    this.server.to(roomId).emit('roomCreated', { roomId });
+    const room = result.message as RoomType;
+    this.server.to(roomId).emit('roomCreated', {
+      room: {
+        roomId,
+        members: room.members,
+        createdAt: room.createdAt,
+      },
+    });
     this.emitRooms();
   }
 
@@ -94,19 +111,40 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       address: data.address,
     });
     if (!result.success) {
-      this.server.to(data.roomId).emit('error', {
+      client.emit('error', {
         message: result.message,
       });
       return;
     }
-    this.server.to(data.roomId).emit('userJoined', { address: data.address });
+    const room = result.message as RoomType;
+    this.server.to(data.roomId).emit('userJoined', {
+      room: {
+        roomId: room.roomId,
+        members: room.members,
+        createdAt: room.createdAt,
+      },
+    });
     this.emitRooms();
   }
 
   @SubscribeMessage('leaveRoom')
   async handleLeaveRoom(@ConnectedSocket() client: Socket) {
-    await this.roomService.leaveRoom({
+    const result = await this.roomService.leaveRoom({
       clientId: client.id,
+    });
+    if (!result.success) {
+      client.emit('error', {
+        message: result.message,
+      });
+      return;
+    }
+    const room = result.message as RoomType;
+    this.server.to(room.roomId).emit('userLeft', {
+      room: {
+        roomId: room.roomId,
+        members: room.members,
+        createdAt: room.createdAt,
+      },
     });
     this.emitRooms();
   }

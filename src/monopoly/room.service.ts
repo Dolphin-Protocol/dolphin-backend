@@ -51,7 +51,7 @@ export class RoomService {
     roomId: string;
     clientId: string;
     address: string;
-  }): Promise<{ success: boolean; message: string }> {
+  }): Promise<{ success: boolean; message: string | RoomType }> {
     if (!address) {
       return {
         success: false,
@@ -81,7 +81,17 @@ export class RoomService {
     await this.roomRepository.save(room);
     return {
       success: true,
-      message: 'Room created successfully',
+      message: {
+        roomId,
+        members: [
+          {
+            clientId,
+            address,
+            isCreator: true,
+          },
+        ],
+        createdAt: room.createdAt,
+      },
     };
   }
   async joinRoom({
@@ -92,7 +102,7 @@ export class RoomService {
     roomId: string;
     clientId: string;
     address: string;
-  }): Promise<{ success: boolean; message: string }> {
+  }): Promise<{ success: boolean; message: string | RoomType }> {
     if (!roomId) {
       return {
         success: false,
@@ -134,13 +144,50 @@ export class RoomService {
     await this.roomRepository.save(room);
     return {
       success: true,
-      message: 'Joined room successfully',
+      message: {
+        roomId,
+        members: [
+          ...roomMembers.map((roomMember) => ({
+            clientId: roomMember.clientId,
+            address: roomMember.address,
+            isCreator: roomMember.isCreator,
+          })),
+          {
+            clientId,
+            address,
+            isCreator: false,
+          },
+        ],
+        createdAt: room.createdAt,
+      },
     };
   }
 
-  async leaveRoom({ clientId }: { clientId: string }) {
-    return await this.roomRepository.delete({
-      clientId,
+  async leaveRoom({ clientId }: { clientId: string }): Promise<{
+    success: boolean;
+    message: string | RoomType;
+  }> {
+    const roomMembers = await this.roomRepository.find({
+      where: { clientId: clientId },
     });
+    if (roomMembers.length === 0) {
+      return {
+        success: false,
+        message: 'You are not in any room',
+      };
+    }
+    await this.roomRepository.delete({ clientId });
+    return {
+      success: true,
+      message: {
+        roomId: roomMembers[0].roomId,
+        members: roomMembers.map((roomMember) => ({
+          clientId: roomMember.clientId,
+          address: roomMember.address,
+          isCreator: roomMember.isCreator,
+        })),
+        createdAt: roomMembers[0].createdAt,
+      },
+    };
   }
 }
