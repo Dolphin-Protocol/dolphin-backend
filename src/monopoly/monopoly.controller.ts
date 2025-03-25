@@ -1,11 +1,12 @@
 import { Controller, Get } from '@nestjs/common';
+import { RoomService } from './room.service';
 
-@Controller()
+@Controller('monopoly')
 export class MonopolyController {
-  constructor() {}
+  constructor(private readonly roomService: RoomService) {}
 
-  @Get()
-  getHello(): string {
-    return 'Hello World!';
+  @Get('rooms')
+  async getRooms() {
+    return this.roomService.getRooms();
   }
 }
