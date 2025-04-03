@@ -11,7 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import { RoomService } from './room.service';
 import { RoomType } from './monopoly.type';
-
+import { GameService } from './game.service';
 @WebSocketGateway({
   cors: {
     origin: '*',
@@ -19,7 +19,10 @@ import { RoomType } from './monopoly.type';
   },
 })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  constructor(private readonly roomService: RoomService) {}
+  constructor(
+    private readonly roomService: RoomService,
+    private readonly gameService: GameService,
+  ) {}
   @WebSocketServer()
   server: Server;
 
@@ -147,5 +150,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       },
     });
     this.emitRooms();
+  }
+
+  // Game
+
+  @SubscribeMessage('startGame')
+  async handleStartGame(@ConnectedSocket() client: Socket) {
+    const roomMember = await this.roomService.getRoomMemberByClientId(
+      client.id,
+    );
+    if (!roomMember || !roomMember.isCreator) {
+      return;
+    }
+    this.gameService.startGame(roomMember.roomId);
+    this.server.to(roomMember.roomId).emit('gameStarting', {
+      roomId: roomMember.roomId,
+    });
+    //broadcast game starting
   }
 }

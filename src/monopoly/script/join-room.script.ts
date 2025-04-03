@@ -23,6 +23,10 @@ socketIO.on('error', (data) => {
   console.log('error', data);
 });
 
+socketIO.on('userLeft', (data) => {
+  console.log('userLeft', data);
+});
+
 setInterval(() => {
   if (roomId && !joined) {
     socketIO.emit('joinRoom', {

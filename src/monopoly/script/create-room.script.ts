@@ -27,6 +27,10 @@ socketIO.on('error', (data) => {
   console.log('error', data);
 });
 
+socketIO.on('userLeft', (data) => {
+  console.log('userLeft', data);
+});
+
 setTimeout(() => {
   socketIO.emit('createRoom', {
     address: '123',

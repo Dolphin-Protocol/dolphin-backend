@@ -43,6 +43,18 @@ export class RoomService {
     return Object.values(rooms);
   }
 
+  async getRoomMemberByClientId(clientId: string) {
+    const roomMember = await this.roomRepository.findOne({
+      where: {
+        clientId,
+      },
+    });
+    if (!roomMember) {
+      return null;
+    }
+    return roomMember;
+  }
+
   async createRoom({
     roomId,
     clientId,
