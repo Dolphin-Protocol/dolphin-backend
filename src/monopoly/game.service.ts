@@ -3,9 +3,32 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { SetupService } from './setup/setup.service';
 import { Room } from 'src/entity/monopoly/room.entity';
 import { Repository } from 'typeorm';
-import { SuiClient } from '@mysten/sui/dist/cjs/client';
-import { getOwnedAdminCaps } from '@sui-dolphin/monopoly-sdk';
+import { SuiClient, SuiEvent } from '@mysten/sui/client';
+import {
+  Action,
+  executeTransaction,
+  getOwnedAdminCaps,
+  HouseCellClass,
+  MonopolyGame,
+  newIdleCell,
+  setupGameCreation,
+} from '@sui-dolphin/monopoly-sdk';
 import { History } from 'src/entity/monopoly/history.entity';
+import { HouseCell } from '@sui-dolphin/monopoly-sdk/dist/_generated/monopoly/house-cell/structs';
+import { Transaction, TransactionResult } from '@mysten/sui/transactions';
+
+import {
+  ActionRequest,
+  AdminCap,
+  GameCreatedEvent,
+  TurnCap,
+} from '@sui-dolphin/monopoly-sdk/dist/_generated/monopoly/monopoly/structs';
+import { ChanceCellClass } from '@sui-dolphin/monopoly-sdk/dist/cells/chance_cell';
+import { Cell } from '@sui-dolphin/monopoly-sdk/dist/_generated/monopoly/cell/structs';
+import { ConfigService } from '@nestjs/config';
+import { Ed25519Keypair } from '@mysten/sui/dist/cjs/keypairs/ed25519';
+import { packageId } from './constants';
+import { TypeArgument } from '@sui-dolphin/monopoly-sdk/dist/_generated/_framework/reified';
 @Injectable()
 export class GameService {
   private suiClient: SuiClient;
@@ -15,41 +38,288 @@ export class GameService {
     @InjectRepository(History)
     private historyRepository: Repository<History>,
     private setupService: SetupService,
+    private configService: ConfigService,
   ) {
     this.suiClient = this.setupService.getSuiClient();
   }
 
-  async createGame(roomId: string) {
-    // const room = await this.roomRepository.findOne({
-    //   where: { id: roomId },
-    // });
-    // if (!room) {
-    //   throw new Error('Room not found');
-    // }
-    console.log(roomId);
-  }
-
-  async getAdminKeypair() {
-    const admin = await this.setupService.loadKeypair();
-    console.log(admin);
+  async getAdminCap() {
+    const { admin } = this.setupService.loadKeypair();
     const adminCaps = await getOwnedAdminCaps(
-      this.suiClient,
-      admin.admin.toSuiAddress(),
+      this.suiClient as any, // Type cast to avoid type mismatch
+      admin.toSuiAddress(),
     );
-    console.log(adminCaps);
-    return admin;
+    return {
+      adminCap: adminCaps[0],
+      admin,
+    };
   }
 
   async startGame(roomId: string) {
     // call setupGameCreation
+    const { admin } = this.setupService.loadKeypair();
     const members = await this.roomRepository.find({
       where: {
         roomId,
       },
     });
+    console.log(members);
     if (members.length < 2) {
       return;
     }
+    const [{ houseClass }, { chanceClass }, { adminCap }] = await Promise.all([
+      this.setupService.getHouseRegistry(),
+      this.setupService.getChanceRegistry(),
+      this.getAdminCap(),
+    ]);
     // create game
+    const ptb = this.createGameWithOnlyHouseCellExample(
+      houseClass,
+      chanceClass,
+      adminCap,
+      members.map((member) => member.address),
+      admin.toSuiAddress(),
+    );
+    const result = await executeTransaction(this.suiClient, admin, ptb, {
+      showEvents: true,
+      showEffects: true,
+      showInput: true,
+    });
+    const event: SuiEvent = result.events.find(
+      (event) => event.type === `${packageId}::monopoly::GameCreatedEvent`,
+    ) as SuiEvent;
+
+    const data = event.parsedJson as GameCreatedEvent;
+    console.log(result);
+    console.log(event);
+    await Promise.all(
+      data?.players?.map((player) => {
+        const id = `${event.id.txDigest}-${event.id.eventSeq}-${player}`;
+        console.log(player);
+        const history = this.historyRepository.create({
+          id,
+          roomId,
+          gameObjectId: data.game,
+          address: player,
+          clientId: members.find((m) => m.address === player)?.clientId,
+          action: 'startGame',
+          actionData: JSON.stringify(event),
+          event_seq: Number(event.id.eventSeq),
+          tx_digest: event.id.txDigest,
+          timestamp: Number(result.timestampMs ?? Date.now()),
+        });
+        return this.historyRepository.save(history);
+      }),
+    );
+
+    return {
+      players: members.filter(
+        (member) => member.address !== admin.toSuiAddress(),
+      ),
+      gameId: data.game,
+    };
+  }
+
+  async resolvePlayerMove(address: string): Promise<SuiEvent[]> {
+    const { chanceClass } = await this.setupService.getChanceRegistry();
+    const { admin } = this.setupService.loadKeypair();
+    const game = await this.setupService.getGameByPlayerAddress(address);
+    const turnCap = await this.setupService.getTurnCapByAddress(
+      game,
+      game.game.id,
+    );
+
+    const events = await this.adminExecutePlayerMove(
+      this.suiClient,
+      game,
+      chanceClass,
+      admin,
+      turnCap,
+      Action.BUY_OR_UPGRADE,
+    );
+    return events;
+  }
+
+  async settleBuyOrUpgradeAction(address: string, actionRequestId: string) {
+    const { admin } = this.setupService.loadKeypair();
+    const game = await this.setupService.getGameByPlayerAddress(address);
+    console.log(actionRequestId, 'actionRequestId');
+    const actionRequests = await game.getOwnedActionRequest(
+      this.suiClient,
+      game.game.id,
+      Action.BUY_OR_UPGRADE,
+    );
+    console.log(actionRequests, 'actionRequests');
+    const actionRequest = actionRequests.find(
+      (action) => action.id === actionRequestId,
+    );
+    if (!actionRequest) {
+      console.error('No actionRequest found');
+      return;
+    }
+    return this.adminSettleBuyOrUpgradeAction(
+      this.suiClient,
+      game,
+      admin,
+      actionRequest,
+    );
+  }
+
+  // frontend
+  async playerRollDice(player: Ed25519Keypair) {
+    const game = await this.setupService.getGameByPlayerAddress(
+      player.toSuiAddress(),
+    );
+    const turnCap = await this.setupService.getTurnCapByAddress(
+      game,
+      player.toSuiAddress(),
+    );
+    await this.playerRequestMove(this.suiClient, game, player, turnCap);
+  }
+
+  async playerBuy(player: Ed25519Keypair) {
+    const game = await this.setupService.getGameByPlayerAddress(
+      player.toSuiAddress(),
+    );
+
+    const actionRequest = await game.getOwnedActionRequest(
+      this.suiClient,
+      player.toSuiAddress(),
+      Action.BUY_OR_UPGRADE,
+    );
+    if (!actionRequest.length) {
+      console.error('No actionRequest found');
+      return;
+    }
+    await this.playerExecuteBuyOrUpgradeAction(
+      this.suiClient,
+      game,
+      player,
+      actionRequest[0],
+      {
+        purchased: true,
+      },
+    );
+  }
+
+  // inner function
+  createGameWithOnlyHouseCellExample(
+    houseClass: HouseCellClass,
+    chanceClass: ChanceCellClass,
+    adminCap: AdminCap,
+    players: string[],
+    admin: string,
+  ) {
+    let ptb = new Transaction();
+    const cells: { cell: TransactionResult; typeName: string }[] = [];
+
+    // let's create 4x4 borad game, requiring 12 cells
+    //
+    // import required cells;
+    const vec = [...Array(12).keys()];
+    vec.forEach((idx) => {
+      if (idx % 4 == 0) {
+        // jail cell
+        const { cell, ptb: ptb_ } = newIdleCell(idx.toString(), ptb);
+        cells.push({ typeName: Cell.$typeName, cell });
+        ptb = ptb_;
+      } else {
+        // hose cell
+        const { cell, ptb: ptb_ } = houseClass.newCell(idx.toString(), ptb);
+
+        cells.push({ typeName: HouseCell.$typeName, cell });
+
+        ptb = ptb_;
+      }
+    });
+
+    const maxRound = 4n;
+    const maxSteps = 6;
+    const salary = 100n;
+    const initialFunds = 2000n;
+
+    ptb = setupGameCreation(
+      adminCap,
+      players,
+      maxRound,
+      maxSteps,
+      salary,
+      cells,
+      initialFunds,
+      admin,
+      ptb,
+    );
+
+    return ptb;
+  }
+
+  async playerRequestMove(
+    client: SuiClient,
+    monopolyGame: MonopolyGame,
+    player: Ed25519Keypair,
+    turnCap: TurnCap,
+  ) {
+    const ptb = monopolyGame.playerMove(player.toSuiAddress(), turnCap);
+
+    const response = await executeTransaction(client, player, ptb, {
+      showEvents: true,
+    });
+
+    return response.events;
+  }
+
+  async adminExecutePlayerMove(
+    client: SuiClient,
+    monopolyGame: MonopolyGame,
+    chanceCellClass: ChanceCellClass,
+    admin: Ed25519Keypair,
+    turnCap: TurnCap,
+    action: Action,
+  ) {
+    const ptb = monopolyGame.adminExecutePlayerMove(
+      turnCap,
+      action,
+      chanceCellClass,
+    );
+
+    const response = await executeTransaction(client, admin, ptb, {
+      showEvents: true,
+    });
+
+    return response.events;
+  }
+
+  async playerExecuteBuyOrUpgradeAction<P extends TypeArgument>(
+    client: SuiClient,
+    monopolyGame: MonopolyGame,
+    player: Ed25519Keypair,
+    actionRequest: ActionRequest<P>,
+    args: {
+      purchased: boolean;
+    },
+  ) {
+    const ptb = monopolyGame.playerExecuteBuyOrUpgarde(
+      actionRequest,
+      args.purchased,
+    );
+
+    await executeTransaction(client, player, ptb, {
+      showEvents: true,
+    });
+  }
+
+  async adminSettleBuyOrUpgradeAction<P extends TypeArgument>(
+    client: SuiClient,
+    monopolyGame: MonopolyGame,
+    admin: Ed25519Keypair,
+    actionRequest: ActionRequest<P>,
+  ) {
+    const ptb = monopolyGame.settleBuyOrUpgradeAction(actionRequest);
+
+    const result = await executeTransaction(client, admin, ptb, {
+      showEvents: true,
+    });
+    console.log(result, 'result');
+    return result.events;
   }
 }

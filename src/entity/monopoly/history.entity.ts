@@ -25,7 +25,8 @@ export class History {
     | 'buy'
     | 'pay'
     | 'chance'
-    | 'jail';
+    | 'jail'
+    | 'rollDice';
 
   @Column()
   actionData: string;

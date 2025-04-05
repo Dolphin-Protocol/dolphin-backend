@@ -4,18 +4,249 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GameGateway } from '../game.gateway';
 import { History } from '../../entity/monopoly/history.entity';
+import { packageId, upgradedPackageId } from '../constants';
+import {
+  PaginatedEvents,
+  PaginatedObjectsResponse,
+  SuiClient,
+  SuiEvent,
+} from '@mysten/sui/client';
+import { SetupService } from '../setup/setup.service';
+import { RollDiceEvent } from '@sui-dolphin/monopoly-sdk/dist/_generated/monopoly/monopoly/structs';
+import { GameService } from '../game.service';
+import { ActionRequestEvent } from '@sui-dolphin/monopoly-sdk/dist/_generated/monopoly/event/structs';
+import {
+  BuyArgument,
+  PlayerBuyOrUpgradeHouseEvent,
+} from '@sui-dolphin/monopoly-sdk/dist/_generated/monopoly/house-cell/structs';
 
 @Injectable()
 export class EventService {
+  private readonly suiClient: SuiClient;
+  private readonly limit = 20;
   constructor(
     @InjectRepository(History)
     private readonly historyRepository: Repository<History>,
     private readonly gameGateway: GameGateway,
-  ) {}
+    private readonly setupService: SetupService,
+    private readonly gameService: GameService,
+  ) {
+    this.suiClient = this.setupService.getSuiClient();
+  }
 
-  @Cron('5 * * * * *')
-  handleCron() {
-    // Use the gateway to emit events
-    // this.gameGateway.server.emit('cronUpdate', { timestamp: new Date() });
+  @Cron('*/3 * * * * *')
+  async handleRollDiceEvent() {
+    const lastHistory = await this.historyRepository.findOne({
+      where: {
+        action: 'rollDice',
+      },
+      order: {
+        timestamp: 'DESC',
+      },
+    });
+    const events = await this.queryEvents({
+      module: 'monopoly',
+      packageId,
+      eventType: 'RollDiceEvent',
+      nextCursor: lastHistory
+        ? {
+            eventSeq: lastHistory.event_seq.toString(),
+            txDigest: lastHistory.tx_digest,
+          }
+        : undefined,
+    });
+    for (const event of events) {
+      await this.playerMove(event);
+    }
+  }
+
+  @Cron('*/3 * * * * *')
+  async handlePlayerBuyEvent() {
+    const lastHistory = await this.historyRepository.findOne({
+      where: {
+        action: 'buy',
+      },
+      order: {
+        timestamp: 'DESC',
+      },
+    });
+    const events = await this.queryEvents({
+      module: 'house_cell',
+      packageId: upgradedPackageId,
+      eventType: 'PlayerBuyOrUpgradeHouseEvent',
+      nextCursor: lastHistory
+        ? {
+            eventSeq: lastHistory.event_seq.toString(),
+            txDigest: lastHistory.tx_digest,
+          }
+        : undefined,
+    });
+    for (const event of events) {
+      await this.playerBuy(event);
+    }
+  }
+
+  async playerMove(event: SuiEvent) {
+    const rollDiceEvent = event.parsedJson as RollDiceEvent;
+    const history = await this.historyRepository.findOne({
+      where: {
+        gameObjectId: rollDiceEvent.game,
+      },
+    });
+    if (!history) {
+      return;
+    }
+    await this.historyRepository.save({
+      id: `${event.id.txDigest}-${event.id.eventSeq}`,
+      roomId: history.roomId,
+      gameObjectId: history.gameObjectId,
+      address: rollDiceEvent.player,
+      clientId: history.clientId,
+      action: 'rollDice',
+      actionData: JSON.stringify(event.parsedJson),
+      event_seq: Number(event.id.eventSeq),
+      tx_digest: event.id.txDigest,
+      timestamp: Number(event.timestampMs ?? Date.now()),
+    });
+    console.log(rollDiceEvent.player, 'rollDiceEvent.player');
+    const events = await this.gameService.resolvePlayerMove(
+      rollDiceEvent.player,
+    );
+    console.log(events, 'events');
+    for (const event of events) {
+      if (
+        event.type ===
+        `${packageId}::event::ActionRequestEvent<${packageId}::house_cell::BuyArgument>`
+      ) {
+        const actionRequestEvent =
+          event.parsedJson as ActionRequestEvent<BuyArgument>;
+        this.gameGateway.server.to(history.roomId).emit('actionRequest', {
+          address: actionRequestEvent.player,
+          parameters: actionRequestEvent.parameter,
+        });
+        //TODO: emit different events for different action types 1. ask buy or not 2. next player (pay, chance, do nothing)
+      }
+    }
+  }
+
+  async playerBuy(event: SuiEvent) {
+    console.log(event, 'event');
+    const playerBuyOrUpgradeHouseEvent = event.parsedJson as {
+      action_request: string;
+      game: string;
+      player: string;
+      purchased: boolean;
+    };
+    const history = await this.historyRepository.findOne({
+      where: {
+        gameObjectId: playerBuyOrUpgradeHouseEvent.game,
+      },
+    });
+    if (!history) {
+      return;
+    }
+    await this.historyRepository.save({
+      id: `${event.id.txDigest}-${event.id.eventSeq}`,
+      roomId: history.roomId,
+      gameObjectId: history.gameObjectId,
+      address: playerBuyOrUpgradeHouseEvent.player,
+      clientId: history.clientId,
+      action: 'buy',
+      actionData: JSON.stringify(event.parsedJson),
+      event_seq: Number(event.id.eventSeq),
+      tx_digest: event.id.txDigest,
+      timestamp: Number(event.timestampMs ?? Date.now()),
+    });
+    await this.gameService.settleBuyOrUpgradeAction(
+      playerBuyOrUpgradeHouseEvent.player,
+      playerBuyOrUpgradeHouseEvent.action_request,
+    );
+    this.gameGateway.server.to(history.roomId).emit('actionRequest', {
+      address: playerBuyOrUpgradeHouseEvent.player,
+      parameters: playerBuyOrUpgradeHouseEvent.purchased,
+    });
+  }
+
+  async queryEvents({
+    module,
+    packageId,
+    eventType,
+    nextCursor,
+  }: {
+    module: string;
+    packageId: string;
+    eventType: string;
+    nextCursor?: PaginatedEvents['nextCursor'];
+  }) {
+    let hasNextPage = false;
+
+    const data: PaginatedEvents['data'] = [];
+    // console.log(`${packageId}::${module}::${eventType}`);
+    do {
+      const event = await this.suiClient.queryEvents({
+        query: {
+          // MoveEventModule: {
+          //   package: packageId,
+          //   module,
+          // },
+          MoveEventType: `${packageId}::${module}::${eventType}`,
+        },
+        limit: this.limit,
+        cursor: nextCursor,
+        order: 'ascending',
+      });
+      hasNextPage = event.hasNextPage;
+      nextCursor = event.nextCursor;
+      data.push(...event.data);
+    } while (hasNextPage);
+
+    return data;
+  }
+
+  async queryOwnedObjects({
+    owner,
+    module,
+    packageId,
+    type,
+    nextCursor,
+  }: {
+    owner: string;
+    module: string;
+    packageId: string;
+    type: string;
+    nextCursor?: PaginatedObjectsResponse['nextCursor'];
+  }) {
+    let hasNextPage = false;
+
+    const data: PaginatedObjectsResponse['data'] = [];
+    console.log(`${packageId}::${module}::${type}`);
+    do {
+      const event = await this.suiClient.getOwnedObjects({
+        owner,
+        filter: {
+          StructType: `${packageId}::${module}::${type}`,
+        },
+        limit: this.limit,
+        cursor: nextCursor,
+        options: {
+          showContent: true,
+        },
+      });
+      hasNextPage = event.hasNextPage;
+      nextCursor = event.nextCursor;
+      data.push(...event.data);
+    } while (hasNextPage);
+
+    return data;
+  }
+
+  async queryObjects({ ids }: { ids: string[] }) {
+    const objects = await this.suiClient.multiGetObjects({
+      ids,
+      options: {
+        showContent: true,
+      },
+    });
+    return objects;
   }
 }
