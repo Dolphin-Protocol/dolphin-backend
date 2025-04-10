@@ -156,6 +156,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('startGame')
   async handleStartGame(@ConnectedSocket() client: Socket) {
+    console.log('startGame');
     const roomMember = await this.roomService.getRoomMemberByClientId(
       client.id,
     );

@@ -29,14 +29,14 @@
     "@nestjs/schedule": "^5.0.1",
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.0.11",
+    "@sui-dolphin/monopoly-sdk": "^0.0.2",
     "@types/socket.io": "^3.0.2",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.1",
     "sqlite3": "^5.1.7",
     "typeorm": "^0.3.21",
-    "uuid": "^11.1.0",
-    "@sui-dolphin/monopoly-sdk": "link:@sui-dolphin/monopoly-sdk"
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",

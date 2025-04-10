@@ -12,13 +12,10 @@ import {
   SuiEvent,
 } from '@mysten/sui/client';
 import { SetupService } from '../setup/setup.service';
-import { RollDiceEvent } from '@sui-dolphin/monopoly-sdk/dist/_generated/monopoly/monopoly/structs';
 import { GameService } from '../game.service';
-import { ActionRequestEvent } from '@sui-dolphin/monopoly-sdk/dist/_generated/monopoly/event/structs';
-import {
-  BuyArgument,
-  PlayerBuyOrUpgradeHouseEvent,
-} from '@sui-dolphin/monopoly-sdk/dist/_generated/monopoly/house-cell/structs';
+import { RollDiceEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/monopoly/structs';
+import { BuyArgument } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/house-cell/structs';
+import { ActionRequestEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/event/structs';
 
 @Injectable()
 export class EventService {
@@ -108,11 +105,9 @@ export class EventService {
       tx_digest: event.id.txDigest,
       timestamp: Number(event.timestampMs ?? Date.now()),
     });
-    console.log(rollDiceEvent.player, 'rollDiceEvent.player');
     const events = await this.gameService.resolvePlayerMove(
       rollDiceEvent.player,
     );
-    console.log(events, 'events');
     for (const event of events) {
       if (
         event.type ===
@@ -130,7 +125,6 @@ export class EventService {
   }
 
   async playerBuy(event: SuiEvent) {
-    console.log(event, 'event');
     const playerBuyOrUpgradeHouseEvent = event.parsedJson as {
       action_request: string;
       game: string;
@@ -219,7 +213,6 @@ export class EventService {
     let hasNextPage = false;
 
     const data: PaginatedObjectsResponse['data'] = [];
-    console.log(`${packageId}::${module}::${type}`);
     do {
       const event = await this.suiClient.getOwnedObjects({
         owner,

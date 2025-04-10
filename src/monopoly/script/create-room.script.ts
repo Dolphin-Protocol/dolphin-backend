@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
-// const socketIO = io('http://localhost:3003');
-const socketIO = io('http://5.183.11.9:3003');
+const socketIO = io('http://localhost:3003');
+// const socketIO = io('http://5.183.11.9:3003');
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 socketIO.on('connection', (socket: Socket) => {
@@ -33,6 +33,20 @@ socketIO.on('userLeft', (data) => {
 
 setTimeout(() => {
   socketIO.emit('createRoom', {
-    address: '123',
+    address:
+      '0x75afb4e868035ae16dc00bfc88f9eb534afe5d003a84a46e8f5ca4830760c88c',
   });
 }, 1000);
+
+setTimeout(() => {
+  socketIO.emit('startGame');
+  console.log('startGame');
+}, 6000);
+
+socketIO.on('gameStarting', (data) => {
+  console.log('gameStarting', data);
+});
+
+socketIO.on('actionRequest', (data) => {
+  console.log('actionRequest', data);
+});

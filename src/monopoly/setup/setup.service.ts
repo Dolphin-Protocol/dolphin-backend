@@ -9,15 +9,16 @@ import {
   HouseCellClass,
   SharedObjectInput,
 } from '@sui-dolphin/monopoly-sdk';
-import {
-  ChanceCellClass,
-  getChanceRegistry,
-} from '@sui-dolphin/monopoly-sdk/dist/cells/chance_cell';
+
 import { chanceRegistryConfig } from '../constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { History } from 'src/entity/monopoly/history.entity';
 import { MonopolyGame } from '@sui-dolphin/monopoly-sdk';
+import {
+  ChanceCellClass,
+  getChanceRegistry,
+} from '@sui-dolphin/monopoly-sdk/cells/chance_cell';
 @Injectable()
 export class SetupService {
   private suiClient: SuiClient;

@@ -14,21 +14,21 @@ import {
   setupGameCreation,
 } from '@sui-dolphin/monopoly-sdk';
 import { History } from 'src/entity/monopoly/history.entity';
-import { HouseCell } from '@sui-dolphin/monopoly-sdk/dist/_generated/monopoly/house-cell/structs';
 import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 
-import {
-  ActionRequest,
-  AdminCap,
-  GameCreatedEvent,
-  TurnCap,
-} from '@sui-dolphin/monopoly-sdk/dist/_generated/monopoly/monopoly/structs';
-import { ChanceCellClass } from '@sui-dolphin/monopoly-sdk/dist/cells/chance_cell';
-import { Cell } from '@sui-dolphin/monopoly-sdk/dist/_generated/monopoly/cell/structs';
 import { ConfigService } from '@nestjs/config';
 import { Ed25519Keypair } from '@mysten/sui/dist/cjs/keypairs/ed25519';
 import { packageId } from './constants';
-import { TypeArgument } from '@sui-dolphin/monopoly-sdk/dist/_generated/_framework/reified';
+import { GameCreatedEvent } from './game.type';
+import { ChanceCellClass } from '@sui-dolphin/monopoly-sdk/cells/chance_cell';
+import {
+  ActionRequest,
+  AdminCap,
+  TurnCap,
+} from '@sui-dolphin/monopoly-sdk/_generated/monopoly/monopoly/structs';
+import { Cell } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/cell/structs';
+import { HouseCell } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/house-cell/structs';
+import { TypeArgument } from '@sui-dolphin/monopoly-sdk/_generated/_framework/reified';
 @Injectable()
 export class GameService {
   private suiClient: SuiClient;
