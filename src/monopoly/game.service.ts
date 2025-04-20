@@ -19,11 +19,11 @@ import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 import { ConfigService } from '@nestjs/config';
 import { Ed25519Keypair } from '@mysten/sui/dist/cjs/keypairs/ed25519';
 import { packageId } from './constants';
-import { GameCreatedEvent } from './game.type';
 import { ChanceCellClass } from '@sui-dolphin/monopoly-sdk/cells/chance_cell';
 import {
   ActionRequest,
   AdminCap,
+  GameCreatedEvent,
   TurnCap,
 } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/monopoly/structs';
 import { Cell } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/cell/structs';
@@ -90,12 +90,9 @@ export class GameService {
     ) as SuiEvent;
 
     const data = event.parsedJson as GameCreatedEvent;
-    console.log(result);
-    console.log(event);
     await Promise.all(
       data?.players?.map((player) => {
         const id = `${event.id.txDigest}-${event.id.eventSeq}-${player}`;
-        console.log(player);
         const history = this.historyRepository.create({
           id,
           roomId,
@@ -120,7 +117,10 @@ export class GameService {
     };
   }
 
-  async resolvePlayerMove(address: string): Promise<SuiEvent[]> {
+  async resolvePlayerMove(
+    address: string,
+    action: Action,
+  ): Promise<SuiEvent[]> {
     const { chanceClass } = await this.setupService.getChanceRegistry();
     const { admin } = this.setupService.loadKeypair();
     const game = await this.setupService.getGameByPlayerAddress(address);
@@ -135,7 +135,7 @@ export class GameService {
       chanceClass,
       admin,
       turnCap,
-      Action.BUY_OR_UPGRADE,
+      action,
     );
     return events;
   }
@@ -170,10 +170,18 @@ export class GameService {
     const game = await this.setupService.getGameByPlayerAddress(
       player.toSuiAddress(),
     );
+    if (!game) {
+      console.error('No game found');
+      return;
+    }
     const turnCap = await this.setupService.getTurnCapByAddress(
       game,
       player.toSuiAddress(),
     );
+    if (!turnCap) {
+      console.error('No turnCap found');
+      return;
+    }
     await this.playerRequestMove(this.suiClient, game, player, turnCap);
   }
 
@@ -321,5 +329,26 @@ export class GameService {
     });
     console.log(result, 'result');
     return result.events;
+  }
+
+  async getGameTurnAddress(clientId: string) {
+    const history = await this.historyRepository.findOne({
+      where: {
+        clientId,
+      },
+    });
+    const turnHistory = await this.historyRepository.findOne({
+      where: {
+        roomId: history.roomId,
+        action: 'changeTurn',
+      },
+      order: {
+        timestamp: 'DESC',
+      },
+    });
+    if (!turnHistory) {
+      return;
+    }
+    return turnHistory.address;
   }
 }

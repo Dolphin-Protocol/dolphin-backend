@@ -13,9 +13,13 @@ import {
 } from '@mysten/sui/client';
 import { SetupService } from '../setup/setup.service';
 import { GameService } from '../game.service';
-import { RollDiceEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/monopoly/structs';
+import {
+  ChangeTurnEvent,
+  RollDiceEvent,
+} from '@sui-dolphin/monopoly-sdk/_generated/monopoly/monopoly/structs';
 import { BuyArgument } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/house-cell/structs';
 import { ActionRequestEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/event/structs';
+import { Action } from '@sui-dolphin/monopoly-sdk';
 
 @Injectable()
 export class EventService {
@@ -58,6 +62,32 @@ export class EventService {
   }
 
   @Cron('*/3 * * * * *')
+  async handleGameStartEvent() {
+    const lastHistory = await this.historyRepository.findOne({
+      where: {
+        action: 'changeTurn',
+      },
+      order: {
+        timestamp: 'DESC',
+      },
+    });
+    const events = await this.queryEvents({
+      module: 'monopoly',
+      packageId,
+      eventType: 'ChangeTurnEvent',
+      nextCursor: lastHistory
+        ? {
+            eventSeq: lastHistory.event_seq.toString(),
+            txDigest: lastHistory.tx_digest,
+          }
+        : undefined,
+    });
+    for (const event of events) {
+      await this.handleChangeTurnEvent(event);
+    }
+  }
+
+  @Cron('*/3 * * * * *')
   async handlePlayerBuyEvent() {
     const lastHistory = await this.historyRepository.findOne({
       where: {
@@ -84,6 +114,7 @@ export class EventService {
   }
 
   async playerMove(event: SuiEvent) {
+    // console.log(event, 'event');
     const rollDiceEvent = event.parsedJson as RollDiceEvent;
     const history = await this.historyRepository.findOne({
       where: {
@@ -105,8 +136,14 @@ export class EventService {
       tx_digest: event.id.txDigest,
       timestamp: Number(event.timestampMs ?? Date.now()),
     });
+
+    // check what action to take by the dice result
+    // if action is buy or upgrade, resolve the emit action request event of the transaction to the frontend
+    // if action is other, do nothing
+
     const events = await this.gameService.resolvePlayerMove(
       rollDiceEvent.player,
+      Action.BUY_OR_UPGRADE,
     );
     for (const event of events) {
       if (
@@ -122,6 +159,30 @@ export class EventService {
         //TODO: emit different events for different action types 1. ask buy or not 2. next player (pay, chance, do nothing)
       }
     }
+  }
+
+  async handleChangeTurnEvent(event: SuiEvent) {
+    const changeTurnEvent = event.parsedJson as ChangeTurnEvent;
+    const history = await this.historyRepository.findOne({
+      where: {
+        gameObjectId: changeTurnEvent.game,
+      },
+    });
+    if (!history) {
+      return;
+    }
+    await this.historyRepository.save({
+      id: `${event.id.txDigest}-${event.id.eventSeq}`,
+      roomId: history.roomId,
+      gameObjectId: history.gameObjectId,
+      address: changeTurnEvent.player,
+      clientId: history.clientId,
+      action: 'changeTurn',
+      actionData: JSON.stringify(event.parsedJson),
+      event_seq: Number(event.id.eventSeq),
+      tx_digest: event.id.txDigest,
+      timestamp: Number(event.timestampMs ?? Date.now()),
+    });
   }
 
   async playerBuy(event: SuiEvent) {

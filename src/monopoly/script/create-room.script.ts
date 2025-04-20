@@ -1,6 +1,6 @@
 import { io, Socket } from 'socket.io-client';
-const socketIO = io('http://localhost:3003');
-// const socketIO = io('http://5.183.11.9:3003');
+// const socketIO = io('http://localhost:3003');
+const socketIO = io('http://5.183.11.9:3003');
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 socketIO.on('connection', (socket: Socket) => {

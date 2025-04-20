@@ -102,6 +102,7 @@ export class SetupService {
         timestamp: 'DESC',
       },
     });
+    console.log(history, 'history');
     const ownedGames = await getOwnedGames(
       this.suiClient,
       admin.toSuiAddress(),
