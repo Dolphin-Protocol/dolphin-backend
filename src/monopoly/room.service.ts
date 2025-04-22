@@ -202,4 +202,8 @@ export class RoomService {
       },
     };
   }
+
+  async deleteAllRoom() {
+    await this.roomRepository.delete({});
+  }
 }

@@ -39,4 +39,9 @@ export class MonopolyController {
     const keypair = player === '1' ? player1 : player2;
     return this.gameService.playerBuy(keypair);
   }
+
+  @Get('delete-all-room')
+  async deleteAllRoom() {
+    return this.roomService.deleteAllRoom();
+  }
 }
