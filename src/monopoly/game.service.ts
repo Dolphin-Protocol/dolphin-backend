@@ -8,6 +8,7 @@ import {
   Action,
   executeTransaction,
   getOwnedAdminCaps,
+  getOwnedGames,
   HouseCellClass,
   MonopolyGame,
   newIdleCell,
@@ -350,5 +351,106 @@ export class GameService {
       return;
     }
     return turnHistory.address;
+  }
+
+  async getGameStateByRoomId({ roomId }: { roomId: string }) {
+    const { admin } = this.setupService.loadKeypair();
+    const [histories, ownedGames] = await Promise.all([
+      this.historyRepository.find({
+        where: {
+          roomId,
+          action: 'startGame',
+        },
+      }),
+      getOwnedGames(this.suiClient, admin.toSuiAddress()),
+    ]);
+
+    const gameId = histories[0].gameObjectId;
+    const targetGame = ownedGames.find((game) => game.id === gameId);
+    const game = new MonopolyGame(targetGame);
+
+    console.log(gameId, 'gameId');
+
+    const cellSize = game.game.cells.size;
+    const cellDf = game.game.cells.id;
+    const cellIds = await Promise.all(
+      Array.from(Array(Number(cellSize))).map(async (_, i) => {
+        const cellDfContent = await this.suiClient.getDynamicFieldObject({
+          parentId: cellDf,
+          name: {
+            type: 'u64',
+            value: i.toString(),
+          },
+        });
+        return cellDfContent.data.objectId;
+      }),
+    );
+
+    const cellsInfo = await this.suiClient.multiGetObjects({
+      ids: cellIds,
+      options: {
+        showContent: true,
+      },
+    });
+    const cells = cellsInfo.map((cell) => {
+      return (cell.data?.content as any)?.fields;
+    });
+
+    const playersState = histories.reduce((acc, history) => {
+      const balance = game.game.balanceManager.balances.contents.find(
+        (b) => b.key === history.address,
+      );
+      const position = game.game.playerPosition.contents.find(
+        (p) => p.key === history.address,
+      );
+      console.log(balance, 'balance');
+      console.log(position, 'position');
+      acc[history.address] = {
+        balance: Number(balance?.value?.value),
+        position: Number(position?.value),
+      };
+      return acc;
+    }, {});
+    return {
+      roomInfo: {
+        roomId,
+        gameId,
+        gameState: 'started',
+      },
+      playersState,
+      houseCell: cells.map((cell) => {
+        if (cell?.house) {
+          return {
+            id: cell.id.id,
+            owner: cell.owner,
+            level: Number(cell.level),
+            position: Number(cell.name),
+            buyPrice: cell.house.fields.buy_prices.fields.contents?.map(
+              (item: { fields: { key: string; value: string } }) => ({
+                level: item.fields.key,
+                price: item.fields.value,
+              }),
+            ),
+            sellPrice: cell.house.fields.sell_prices.fields.contents?.map(
+              (item: { fields: { key: string; value: string } }) => ({
+                level: item.fields.key,
+                price: item.fields.value,
+              }),
+            ),
+            rentPrice: cell.house.fields.tolls.fields.contents?.map(
+              (item: { fields: { key: string; value: string } }) => ({
+                level: item.fields.key,
+                price: item.fields.value,
+              }),
+            ),
+          };
+        } else {
+          return {
+            id: cell.id.id,
+            position: Number(cell.name),
+          };
+        }
+      }),
+    };
   }
 }

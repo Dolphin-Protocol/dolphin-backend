@@ -44,4 +44,9 @@ export class MonopolyController {
   async deleteAllRoom() {
     return this.roomService.deleteAllRoom();
   }
+
+  @Get('game-state')
+  async getGameState(@Query('roomId') roomId: string) {
+    return this.gameService.getGameStateByRoomId({ roomId });
+  }
 }
