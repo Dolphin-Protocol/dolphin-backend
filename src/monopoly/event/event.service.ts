@@ -13,10 +13,7 @@ import {
 } from '@mysten/sui/client';
 import { SetupService } from '../setup/setup.service';
 import { GameService } from '../game.service';
-import {
-  ChangeTurnEvent,
-  RollDiceEvent,
-} from '@sui-dolphin/monopoly-sdk/_generated/monopoly/monopoly/structs';
+import { ChangeTurnEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/monopoly/structs';
 import { BuyArgument } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/house-cell/structs';
 import { ActionRequestEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/event/structs';
 import { Action } from '@sui-dolphin/monopoly-sdk';
@@ -115,7 +112,11 @@ export class EventService {
 
   async playerMove(event: SuiEvent) {
     // console.log(event, 'event');
-    const rollDiceEvent = event.parsedJson as RollDiceEvent;
+    const rollDiceEvent = event.parsedJson as {
+      game: string;
+      player: string;
+      dice_num: string;
+    };
     const history = await this.historyRepository.findOne({
       where: {
         gameObjectId: rollDiceEvent.game,
@@ -137,26 +138,48 @@ export class EventService {
       timestamp: Number(event.timestampMs ?? Date.now()),
     });
 
+    const gameState = await this.gameService.getGameStateByRoomId({
+      roomId: history.roomId,
+    });
+
+    const originalPosition = Number(
+      gameState.playersState[rollDiceEvent.player].position,
+    );
+    console.log(originalPosition, 'originalPosition');
+    console.log(rollDiceEvent, 'rollDiceEvent');
+    const playerPosition = originalPosition + Number(rollDiceEvent.dice_num);
+    console.log(playerPosition, 'playerPosition');
+    const houseCell = gameState.houseCell.find(
+      (cell) => cell.position === playerPosition,
+    );
+    const isHouseCell = Boolean(houseCell?.buyPrice);
+    console.log(houseCell, 'houseCell');
+    console.log(isHouseCell, 'isHouseCell');
     // check what action to take by the dice result
     // if action is buy or upgrade, resolve the emit action request event of the transaction to the frontend
     // if action is other, do nothing
-
-    const events = await this.gameService.resolvePlayerMove(
-      rollDiceEvent.player,
-      Action.BUY_OR_UPGRADE,
-    );
-    for (const event of events) {
-      if (
-        event.type ===
-        `${packageId}::event::ActionRequestEvent<${packageId}::house_cell::BuyArgument>`
-      ) {
-        const actionRequestEvent =
-          event.parsedJson as ActionRequestEvent<BuyArgument>;
-        this.gameGateway.server.to(history.roomId).emit('actionRequest', {
-          address: actionRequestEvent.player,
-          parameters: actionRequestEvent.parameter,
-        });
-        //TODO: emit different events for different action types 1. ask buy or not 2. next player (pay, chance, do nothing)
+    if (isHouseCell) {
+      const events = await this.gameService.resolvePlayerMove(
+        rollDiceEvent.player,
+        Action.BUY_OR_UPGRADE,
+      );
+      this.gameGateway.server.to(history.roomId).emit('Move', {
+        player: rollDiceEvent.player,
+        position: playerPosition,
+      });
+      for (const event of events) {
+        if (
+          event.type ===
+          `${packageId}::event::ActionRequestEvent<${packageId}::house_cell::BuyArgument>`
+        ) {
+          const actionRequestEvent =
+            event.parsedJson as ActionRequestEvent<BuyArgument>;
+          this.gameGateway.server.to(history.roomId).emit('ActionRequest', {
+            player: actionRequestEvent.player,
+            houseCell,
+          });
+          //TODO: emit different events for different action types 1. ask buy or not 2. next player (pay, chance, do nothing)
+        }
       }
     }
   }
@@ -182,6 +205,10 @@ export class EventService {
       event_seq: Number(event.id.eventSeq),
       tx_digest: event.id.txDigest,
       timestamp: Number(event.timestampMs ?? Date.now()),
+    });
+
+    this.gameGateway.server.to(history.roomId).emit('ChangeTurn', {
+      player: changeTurnEvent.player,
     });
   }
 
@@ -216,9 +243,9 @@ export class EventService {
       playerBuyOrUpgradeHouseEvent.player,
       playerBuyOrUpgradeHouseEvent.action_request,
     );
-    this.gameGateway.server.to(history.roomId).emit('actionRequest', {
-      address: playerBuyOrUpgradeHouseEvent.player,
-      parameters: playerBuyOrUpgradeHouseEvent.purchased,
+    this.gameGateway.server.to(history.roomId).emit('Buy', {
+      player: playerBuyOrUpgradeHouseEvent.player,
+      purchased: playerBuyOrUpgradeHouseEvent.purchased,
     });
   }
 

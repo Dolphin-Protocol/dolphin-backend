@@ -64,7 +64,7 @@ export class GameService {
         roomId,
       },
     });
-    console.log(members);
+    console.log(members, 'members');
     if (members.length < 2) {
       return;
     }
@@ -91,7 +91,7 @@ export class GameService {
     ) as SuiEvent;
 
     const data = event.parsedJson as GameCreatedEvent;
-    await Promise.all(
+    const histories = await Promise.all(
       data?.players?.map((player) => {
         const id = `${event.id.txDigest}-${event.id.eventSeq}-${player}`;
         const history = this.historyRepository.create({
@@ -109,7 +109,7 @@ export class GameService {
         return this.historyRepository.save(history);
       }),
     );
-
+    console.log('game created', histories);
     return {
       players: members.filter(
         (member) => member.address !== admin.toSuiAddress(),
@@ -369,8 +369,6 @@ export class GameService {
     const targetGame = ownedGames.find((game) => game.id === gameId);
     const game = new MonopolyGame(targetGame);
 
-    console.log(gameId, 'gameId');
-
     const cellSize = game.game.cells.size;
     const cellDf = game.game.cells.id;
     const cellIds = await Promise.all(
@@ -403,8 +401,6 @@ export class GameService {
       const position = game.game.playerPosition.contents.find(
         (p) => p.key === history.address,
       );
-      console.log(balance, 'balance');
-      console.log(position, 'position');
       acc[history.address] = {
         balance: Number(balance?.value?.value),
         position: Number(position?.value),
