@@ -165,22 +165,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(roomMember.roomId).emit('WsGameStartingEvent');
     await this.gameService.startGame(roomMember.roomId);
 
-    this.server.to(roomMember.roomId).emit('WsTurnEvent', {
+    this.server.to(roomMember.roomId).emit('ChangeTurn', {
       player: roomMember.address,
-    });
-  }
-
-  @SubscribeMessage('WsTurnEvent')
-  async handleWsTurnEvent(@ConnectedSocket() client: Socket) {
-    console.log('client.id', client.id);
-    const player = await this.gameService.getGameTurnAddress(client.id);
-    console.log('player', player);
-    if (!player) {
-      return;
-    }
-    console.log('has player');
-    this.server.to(client.id).emit('WsTurnEvent', {
-      player,
     });
   }
 

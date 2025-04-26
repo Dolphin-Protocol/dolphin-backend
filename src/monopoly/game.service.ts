@@ -81,16 +81,19 @@ export class GameService {
       members.map((member) => member.address),
       admin.toSuiAddress(),
     );
+    console.log(ptb, 'ptb');
     const result = await executeTransaction(this.suiClient, admin, ptb, {
       showEvents: true,
       showEffects: true,
       showInput: true,
     });
+    console.log(result, 'result');
     const event: SuiEvent = result.events.find(
       (event) => event.type === `${packageId}::monopoly::GameCreatedEvent`,
     ) as SuiEvent;
 
     const data = event.parsedJson as GameCreatedEvent;
+    console.log(data, 'data');
     const histories = await Promise.all(
       data?.players?.map((player) => {
         const id = `${event.id.txDigest}-${event.id.eventSeq}-${player}`;
@@ -101,7 +104,7 @@ export class GameService {
           address: player,
           clientId: members.find((m) => m.address === player)?.clientId,
           action: 'startGame',
-          actionData: JSON.stringify(event),
+          actionData: '',
           event_seq: Number(event.id.eventSeq),
           tx_digest: event.id.txDigest,
           timestamp: Number(result.timestampMs ?? Date.now()),
