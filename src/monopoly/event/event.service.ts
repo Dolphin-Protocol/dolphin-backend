@@ -181,6 +181,11 @@ export class EventService {
           //TODO: emit different events for different action types 1. ask buy or not 2. next player (pay, chance, do nothing)
         }
       }
+    } else {
+      await this.gameService.resolvePlayerMove(
+        rollDiceEvent.player,
+        Action.DO_NOTHING,
+      );
     }
   }
 

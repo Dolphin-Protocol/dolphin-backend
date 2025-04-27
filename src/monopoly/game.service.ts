@@ -401,19 +401,20 @@ export class GameService {
       return (cell.data?.content as any)?.fields;
     });
 
-    const playersState = histories.reduce((acc, history) => {
+    const playersState = histories.map((history) => {
       const balance = game.game.balanceManager.balances.contents.find(
         (b) => b.key === history.address,
       );
       const position = game.game.playerPosition.contents.find(
         (p) => p.key === history.address,
       );
-      acc[history.address] = {
+      return {
+        address: history.address,
         balance: Number(balance?.value?.value),
         position: Number(position?.value),
       };
-      return acc;
-    }, {});
+    });
+
     console.log(playersState, 'playersState');
     return {
       roomInfo: {
