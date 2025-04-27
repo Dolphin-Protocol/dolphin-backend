@@ -331,7 +331,6 @@ export class GameService {
     const result = await executeTransaction(client, admin, ptb, {
       showEvents: true,
     });
-    console.log(result, 'result');
     return result.events;
   }
 
@@ -367,11 +366,17 @@ export class GameService {
       }),
       getOwnedGames(this.suiClient, admin.toSuiAddress()),
     ]);
+    if (!histories.length) {
+      return;
+    }
 
     const gameId = histories[0].gameObjectId;
     const targetGame = ownedGames.find((game) => game.id === gameId);
+    if (!targetGame) {
+      return;
+    }
     const game = new MonopolyGame(targetGame);
-
+    console.log(game, 'game');
     const cellSize = game.game.cells.size;
     const cellDf = game.game.cells.id;
     const cellIds = await Promise.all(
@@ -386,7 +391,6 @@ export class GameService {
         return cellDfContent.data.objectId;
       }),
     );
-
     const cellsInfo = await this.suiClient.multiGetObjects({
       ids: cellIds,
       options: {
@@ -410,6 +414,7 @@ export class GameService {
       };
       return acc;
     }, {});
+    console.log(playersState, 'playersState');
     return {
       roomInfo: {
         roomId,
