@@ -94,25 +94,22 @@ export class GameService {
 
     const data = event.parsedJson as GameCreatedEvent;
     console.log(data, 'data');
-    const histories = await Promise.all(
-      data?.players?.map((player) => {
-        const id = `${event.id.txDigest}-${event.id.eventSeq}-${player}`;
-        const history = this.historyRepository.create({
-          id,
-          roomId,
-          gameObjectId: data.game,
-          address: player,
-          clientId: members.find((m) => m.address === player)?.clientId,
-          action: 'startGame',
-          actionData: '',
-          event_seq: Number(event.id.eventSeq),
-          tx_digest: event.id.txDigest,
-          timestamp: Number(result.timestampMs ?? Date.now()),
-        });
-        return this.historyRepository.save(history);
-      }),
-    );
-    console.log('game created', histories);
+    for (const player of data.players) {
+      const id = `${event.id.txDigest}-${event.id.eventSeq}-${player}`;
+      const history = this.historyRepository.create({
+        id,
+        roomId,
+        gameObjectId: data.game,
+        address: player,
+        clientId: members.find((m) => m.address === player)?.clientId,
+        action: 'startGame',
+        actionData: '',
+        event_seq: Number(event.id.eventSeq),
+        tx_digest: event.id.txDigest,
+        timestamp: Number(result.timestampMs ?? Date.now()),
+      });
+      await this.historyRepository.save(history);
+    }
     return {
       players: members.filter(
         (member) => member.address !== admin.toSuiAddress(),
