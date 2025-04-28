@@ -142,9 +142,9 @@ export class EventService {
       roomId: history.roomId,
     });
 
-    const originalPosition = Number(
-      gameState.playersState[rollDiceEvent.player].position,
-    );
+    const originalPosition = gameState.playersState.find(
+      (p) => p.address === rollDiceEvent.player,
+    )?.position;
     console.log(originalPosition, 'originalPosition');
     console.log(rollDiceEvent, 'rollDiceEvent');
     const playerPosition = originalPosition + Number(rollDiceEvent.dice_num);
