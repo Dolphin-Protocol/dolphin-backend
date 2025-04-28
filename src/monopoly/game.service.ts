@@ -222,12 +222,12 @@ export class GameService {
     let ptb = new Transaction();
     const cells: { cell: TransactionResult; typeName: string }[] = [];
 
-    // let's create 4x4 borad game, requiring 12 cells
+    // let's create 6x6 borad game, requiring 36 cells
     //
     // import required cells;
-    const vec = [...Array(12).keys()];
+    const vec = [...Array(36).keys()];
     vec.forEach((idx) => {
-      if (idx % 4 == 0) {
+      if (idx % 6 == 0) {
         // jail cell
         const { cell, ptb: ptb_ } = newIdleCell(idx.toString(), ptb);
         cells.push({ typeName: Cell.$typeName, cell });
