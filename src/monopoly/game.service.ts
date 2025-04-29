@@ -354,6 +354,7 @@ export class GameService {
 
   async getGameStateByRoomId({ roomId }: { roomId: string }) {
     const { admin } = this.setupService.loadKeypair();
+    console.log(roomId, 'roomId');
     const [histories, ownedGames] = await Promise.all([
       this.historyRepository.find({
         where: {
@@ -366,8 +367,10 @@ export class GameService {
     if (!histories.length) {
       return;
     }
+    console.log(histories, 'histories');
+    console.log(ownedGames, 'ownedGames');
 
-    const gameId = histories[0].gameObjectId;
+    const gameId = histories[0]?.gameObjectId;
     const targetGame = ownedGames.find((game) => game.id === gameId);
     if (!targetGame) {
       return;
