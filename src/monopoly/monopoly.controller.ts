@@ -23,7 +23,7 @@ export class MonopolyController {
 
   @Get('mock-create-game')
   async mockCreateGame() {
-    return this.gameService.startGame('7');
+    return this.gameService.startGame('9');
   }
 
   @Get('mock-player-roll-dice')

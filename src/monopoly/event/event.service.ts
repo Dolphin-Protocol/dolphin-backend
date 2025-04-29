@@ -14,7 +14,10 @@ import {
 import { SetupService } from '../setup/setup.service';
 import { GameService } from '../game.service';
 import { ChangeTurnEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/monopoly/structs';
-import { BuyArgument } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/house-cell/structs';
+import {
+  BuyArgument,
+  PayHouseTollEvent,
+} from '@sui-dolphin/monopoly-sdk/_generated/monopoly/house-cell/structs';
 import { ActionRequestEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/event/structs';
 import { Action } from '@sui-dolphin/monopoly-sdk';
 
@@ -153,32 +156,53 @@ export class EventService {
       (cell) => cell.position === playerPosition,
     );
     const isHouseCell = Boolean(houseCell?.buyPrice);
+    const hasOwner = Boolean(houseCell?.owner);
     console.log(houseCell, 'houseCell');
     console.log(isHouseCell, 'isHouseCell');
     // check what action to take by the dice result
     // if action is buy or upgrade, resolve the emit action request event of the transaction to the frontend
     // if action is other, do nothing
     if (isHouseCell) {
-      const events = await this.gameService.resolvePlayerMove(
-        rollDiceEvent.player,
-        Action.BUY_OR_UPGRADE,
-      );
-      this.gameGateway.server.to(history.roomId).emit('Move', {
-        player: rollDiceEvent.player,
-        position: playerPosition,
-      });
-      for (const event of events) {
-        if (
-          event.type ===
-          `${packageId}::event::ActionRequestEvent<${packageId}::house_cell::BuyArgument>`
-        ) {
-          const actionRequestEvent =
-            event.parsedJson as ActionRequestEvent<BuyArgument>;
-          this.gameGateway.server.to(history.roomId).emit('ActionRequest', {
-            player: actionRequestEvent.player,
-            houseCell,
-          });
-          //TODO: emit different events for different action types 1. ask buy or not 2. next player (pay, chance, do nothing)
+      if (!hasOwner) {
+        const events = await this.gameService.resolvePlayerMove(
+          rollDiceEvent.player,
+          Action.BUY_OR_UPGRADE,
+        );
+        this.gameGateway.server.to(history.roomId).emit('Move', {
+          player: rollDiceEvent.player,
+          position: playerPosition,
+        });
+        for (const event of events) {
+          if (
+            event.type ===
+            `${packageId}::event::ActionRequestEvent<${packageId}::house_cell::BuyArgument>`
+          ) {
+            const actionRequestEvent =
+              event.parsedJson as ActionRequestEvent<BuyArgument>;
+            this.gameGateway.server.to(history.roomId).emit('ActionRequest', {
+              player: actionRequestEvent.player,
+              houseCell,
+            });
+          }
+        }
+      } else {
+        const events = await this.gameService.resolvePlayerMove(
+          rollDiceEvent.player,
+          Action.PAY,
+        );
+        for (const event of events) {
+          console.log(event, 'event');
+          if (event.type === `${packageId}::house_cell::PayHouseTollEvent`) {
+            const payHouseTollEvent = event.parsedJson as PayHouseTollEvent;
+            console.log(payHouseTollEvent, 'payHouseTollEvent');
+            this.gameGateway.server.to(history.roomId).emit('PayHouseToll', {
+              player: payHouseTollEvent.player,
+              houseCell,
+              paidAmount: Number(payHouseTollEvent.paidAmount),
+              payee: payHouseTollEvent.payee,
+              level: Number(payHouseTollEvent.level),
+            });
+          }
         }
       }
     } else {
