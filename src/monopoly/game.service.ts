@@ -353,16 +353,19 @@ export class GameService {
   }
 
   async getGameStateByRoomId({ roomId }: { roomId: string }) {
+    if (!roomId) {
+      return;
+    }
     const { admin } = this.setupService.loadKeypair();
-    console.log(roomId, 'roomId');
+
     const [histories, ownedGames] = await Promise.all([
       this.historyRepository.find({
         where: {
           roomId,
           action: 'startGame',
         },
-      }),
-      getOwnedGames(this.suiClient, admin.toSuiAddress()),
+      }) ?? [],
+      getOwnedGames(this.suiClient, admin.toSuiAddress()) ?? [],
     ]);
     if (!histories.length) {
       return;
