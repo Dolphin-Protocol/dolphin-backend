@@ -156,18 +156,25 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage('startGame')
   async handleStartGame(@ConnectedSocket() client: Socket) {
-    const roomMember = await this.roomService.getRoomMemberByClientId(
-      client.id,
-    );
-    if (!roomMember || !roomMember.isCreator) {
-      return;
-    }
-    this.server.to(roomMember.roomId).emit('WsGameStartingEvent');
-    await this.gameService.startGame(roomMember.roomId);
+    try {
+      const roomMember = await this.roomService.getRoomMemberByClientId(
+        client.id,
+      );
+      if (!roomMember || !roomMember.isCreator) {
+        return;
+      }
+      this.server.to(roomMember.roomId).emit('WsGameStartingEvent');
+      await this.gameService.startGame(roomMember.roomId);
 
-    this.server.to(roomMember.roomId).emit('ChangeTurn', {
-      player: roomMember.address,
-    });
+      this.server.to(roomMember.roomId).emit('ChangeTurn', {
+        player: roomMember.address,
+      });
+    } catch (error) {
+      console.error(error);
+      client.emit('error', {
+        message: error.message,
+      });
+    }
   }
 
   @SubscribeMessage('gameState')
@@ -178,11 +185,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       roomId: string;
     },
   ) {
-    const gameState = await this.gameService.getGameStateByRoomId({
-      roomId: data.roomId,
-    });
-    client.emit('gameState', {
-      gameState,
-    });
+    try {
+      const gameState = await this.gameService.getGameStateByRoomId({
+        roomId: data.roomId,
+      });
+      client.emit('gameState', {
+        gameState,
+      });
+    } catch (error) {
+      console.error(error);
+      client.emit('error', {
+        message: error.message,
+      });
+    }
   }
 }
