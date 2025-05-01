@@ -370,8 +370,8 @@ export class GameService {
     if (!histories.length) {
       return;
     }
-    console.log(histories, 'histories');
-    console.log(ownedGames, 'ownedGames');
+    // console.log(histories, 'histories');
+    // console.log(ownedGames, 'ownedGames');
 
     const gameId = histories[0]?.gameObjectId;
     const targetGame = ownedGames.find((game) => game.id === gameId);
@@ -379,21 +379,35 @@ export class GameService {
       return;
     }
     const game = new MonopolyGame(targetGame);
-    console.log(game, 'game');
+    // console.log(game, 'game');
     const cellSize = game.game.cells.size;
     const cellDf = game.game.cells.id;
-    const cellIds = await Promise.all(
-      Array.from(Array(Number(cellSize))).map(async (_, i) => {
-        const cellDfContent = await this.suiClient.getDynamicFieldObject({
-          parentId: cellDf,
-          name: {
-            type: 'u64',
-            value: i.toString(),
-          },
-        });
-        return cellDfContent.data.objectId;
-      }),
-    );
+    const cellIds: string[] = [];
+    // const cellIds = await Promise.all(
+    //   Array.from(Array(Number(cellSize))).map(async (_, i) => {
+    //     console.log(i, 'i');
+    //     const cellDfContent = await this.suiClient.getDynamicFieldObject({
+    //       parentId: cellDf,
+    //       name: {
+    //         type: 'u64',
+    //         value: i.toString(),
+    //       },
+    //     });
+    //     console.log('cellDfContent', cellDfContent);
+    //     return cellDfContent?.data?.objectId;
+    //   }),
+    // );
+    for (let i = 0; i < Number(cellSize); i++) {
+      const cellDfContent = await this.suiClient.getDynamicFieldObject({
+        parentId: cellDf,
+        name: {
+          type: 'u64',
+          value: i.toString(),
+        },
+      });
+      cellIds.push(cellDfContent?.data?.objectId);
+      await this.waitfor429();
+    }
     const cellsInfo = await this.suiClient.multiGetObjects({
       ids: cellIds,
       options: {
@@ -460,5 +474,13 @@ export class GameService {
         }
       }),
     };
+  }
+
+  async waitfor429() {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(true);
+      }, 100);
+    });
   }
 }

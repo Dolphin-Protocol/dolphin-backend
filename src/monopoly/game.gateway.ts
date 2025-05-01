@@ -186,6 +186,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
   ) {
     try {
+      console.log('handleGameState', client.rooms);
+      client.join(data.roomId);
+      console.log('handleGameState', client.rooms);
+
       const gameState = await this.gameService.getGameStateByRoomId({
         roomId: data.roomId,
       });

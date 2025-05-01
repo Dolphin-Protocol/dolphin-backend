@@ -35,7 +35,7 @@ export class EventService {
     this.suiClient = this.setupService.getSuiClient();
   }
 
-  @Cron('*/3 * * * * *')
+  @Cron('*/1 * * * * *')
   async handleRollDiceEvent() {
     const lastHistory = await this.historyRepository.findOne({
       where: {
@@ -61,7 +61,7 @@ export class EventService {
     }
   }
 
-  @Cron('*/3 * * * * *')
+  @Cron('*/1 * * * * *')
   async handleGameStartEvent() {
     const lastHistory = await this.historyRepository.findOne({
       where: {
@@ -87,7 +87,7 @@ export class EventService {
     }
   }
 
-  @Cron('*/3 * * * * *')
+  @Cron('*/1 * * * * *')
   async handlePlayerBuyEvent() {
     const lastHistory = await this.historyRepository.findOne({
       where: {
@@ -236,8 +236,20 @@ export class EventService {
       timestamp: Number(event.timestampMs ?? Date.now()),
     });
 
+    const playersHistory = await this.historyRepository.find({
+      where: {
+        roomId: history.roomId,
+        action: 'startGame',
+      },
+    });
+
+    const players = playersHistory.map((p) => p.address);
+    const currentPlayer = players.find((p) => p === changeTurnEvent.player);
+    const nextPlayer =
+      players[(players.indexOf(currentPlayer) + 1) % players.length];
+
     this.gameGateway.server.to(history.roomId).emit('ChangeTurn', {
-      player: changeTurnEvent.player,
+      player: nextPlayer,
     });
   }
 
