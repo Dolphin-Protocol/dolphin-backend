@@ -17,3 +17,5 @@ export const chanceRegistryConfig = {
     '0x0503cf72f4d0d7919f63c5e12ece7c197ea18e76c74838785397a6cca9c14d27',
   initialSharedVersion: 390467302,
 } as SharedObjectInput;
+
+export const HOUSE_CELL_SIZE = 20;

@@ -19,7 +19,7 @@ import { Transaction, TransactionResult } from '@mysten/sui/transactions';
 
 import { ConfigService } from '@nestjs/config';
 import { Ed25519Keypair } from '@mysten/sui/dist/cjs/keypairs/ed25519';
-import { packageId } from './constants';
+import { HOUSE_CELL_SIZE, packageId } from './constants';
 import { ChanceCellClass } from '@sui-dolphin/monopoly-sdk/cells/chance_cell';
 import {
   ActionRequest,
@@ -225,7 +225,7 @@ export class GameService {
     // let's create 5x4 borad game, requiring 20 cells
     //
     // import required cells;
-    const vec = [...Array(20).keys()];
+    const vec = [...Array(HOUSE_CELL_SIZE).keys()];
     vec.forEach((idx) => {
       if (idx % 5 == 0) {
         // jail cell

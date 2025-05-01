@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GameGateway } from '../game.gateway';
 import { History } from '../../entity/monopoly/history.entity';
-import { packageId, upgradedPackageId } from '../constants';
+import { HOUSE_CELL_SIZE, packageId, upgradedPackageId } from '../constants';
 import {
   PaginatedEvents,
   PaginatedObjectsResponse,
@@ -150,8 +150,8 @@ export class EventService {
     )?.position;
     console.log(originalPosition, 'originalPosition');
     console.log(rollDiceEvent, 'rollDiceEvent');
-    const playerPosition = originalPosition + Number(rollDiceEvent.dice_num);
-    console.log(playerPosition, 'playerPosition');
+    const playerPosition =
+      (originalPosition + Number(rollDiceEvent.dice_num)) % HOUSE_CELL_SIZE;
     const houseCell = gameState.houseCell.find(
       (cell) => cell.position === playerPosition,
     );
@@ -171,6 +171,7 @@ export class EventService {
         this.gameGateway.server.to(history.roomId).emit('Move', {
           player: rollDiceEvent.player,
           position: playerPosition,
+          step: Number(rollDiceEvent.dice_num),
         });
         for (const event of events) {
           if (
