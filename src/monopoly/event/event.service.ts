@@ -35,7 +35,7 @@ export class EventService {
     this.suiClient = this.setupService.getSuiClient();
   }
 
-  @Cron('*/1 * * * * *')
+  @Cron('*/2 * * * * *')
   async handleRollDiceEvent() {
     const lastHistory = await this.historyRepository.findOne({
       where: {
@@ -61,7 +61,7 @@ export class EventService {
     }
   }
 
-  @Cron('*/1 * * * * *')
+  @Cron('*/5 * * * * *')
   async handleGameStartEvent() {
     const lastHistory = await this.historyRepository.findOne({
       where: {
@@ -87,7 +87,7 @@ export class EventService {
     }
   }
 
-  @Cron('*/1 * * * * *')
+  @Cron('*/3 * * * * *')
   async handlePlayerBuyEvent() {
     const lastHistory = await this.historyRepository.findOne({
       where: {
