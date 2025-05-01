@@ -476,6 +476,31 @@ export class GameService {
     };
   }
 
+  async getChangeTurnByRoomId({ roomId }: { roomId: string }) {
+    const history = await this.historyRepository.findOne({
+      where: {
+        roomId,
+        action: 'changeTurn',
+      },
+      order: {
+        timestamp: 'DESC',
+      },
+    });
+    if (!history) {
+      return;
+    }
+    const players = await this.historyRepository.find({
+      where: {
+        roomId,
+        action: 'startGame',
+      },
+    });
+    const currentPlayer = players.find((p) => p.address === history.address);
+    const nextPlayer =
+      players[(players.indexOf(currentPlayer) + 1) % players.length];
+    return nextPlayer.address;
+  }
+
   async waitfor429() {
     return new Promise((resolve) => {
       setTimeout(() => {

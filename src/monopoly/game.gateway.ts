@@ -203,4 +203,20 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
   }
+
+  @SubscribeMessage('ChangeTurn')
+  async handleMove(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: {
+      roomId: string;
+    },
+  ) {
+    const nextPlayer = await this.gameService.getChangeTurnByRoomId({
+      roomId: data.roomId,
+    });
+    this.server.to(data.roomId).emit('ChangeTurn', {
+      player: nextPlayer,
+    });
+  }
 }

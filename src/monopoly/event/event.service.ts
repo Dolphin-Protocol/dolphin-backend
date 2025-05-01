@@ -191,6 +191,11 @@ export class EventService {
           rollDiceEvent.player,
           Action.PAY,
         );
+        this.gameGateway.server.to(history.roomId).emit('Move', {
+          player: rollDiceEvent.player,
+          position: playerPosition,
+          step: Number(rollDiceEvent.dice_num),
+        });
         for (const event of events) {
           console.log(event, 'event');
           if (event.type === `${packageId}::house_cell::PayHouseTollEvent`) {
@@ -211,6 +216,11 @@ export class EventService {
         rollDiceEvent.player,
         Action.DO_NOTHING,
       );
+      this.gameGateway.server.to(history.roomId).emit('Move', {
+        player: rollDiceEvent.player,
+        position: playerPosition,
+        step: Number(rollDiceEvent.dice_num),
+      });
     }
   }
 
@@ -285,9 +295,22 @@ export class EventService {
       playerBuyOrUpgradeHouseEvent.player,
       playerBuyOrUpgradeHouseEvent.action_request,
     );
+    const gameState = await this.gameService.getGameStateByRoomId({
+      roomId: history.roomId,
+    });
+
     this.gameGateway.server.to(history.roomId).emit('Buy', {
       player: playerBuyOrUpgradeHouseEvent.player,
       purchased: playerBuyOrUpgradeHouseEvent.purchased,
+      houseCell: gameState.houseCell.find(
+        (cell) =>
+          Number(cell.position) ===
+          Number(
+            gameState.playersState.find(
+              (p) => p.address === playerBuyOrUpgradeHouseEvent.player,
+            )?.position,
+          ),
+      ),
     });
   }
 
