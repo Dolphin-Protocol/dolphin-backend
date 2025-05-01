@@ -61,7 +61,7 @@ export class EventService {
     }
   }
 
-  @Cron('*/5 * * * * *')
+  @Cron('*/2 * * * * *')
   async handleGameStartEvent() {
     const lastHistory = await this.historyRepository.findOne({
       where: {

@@ -380,9 +380,7 @@ export class GameService {
     }
     const game = new MonopolyGame(targetGame);
     // console.log(game, 'game');
-    const cellSize = game.game.cells.size;
     const cellDf = game.game.cells.id;
-    const cellIds: string[] = [];
     // const cellIds = await Promise.all(
     //   Array.from(Array(Number(cellSize))).map(async (_, i) => {
     //     console.log(i, 'i');
@@ -397,17 +395,11 @@ export class GameService {
     //     return cellDfContent?.data?.objectId;
     //   }),
     // );
-    for (let i = 0; i < Number(cellSize); i++) {
-      const cellDfContent = await this.suiClient.getDynamicFieldObject({
-        parentId: cellDf,
-        name: {
-          type: 'u64',
-          value: i.toString(),
-        },
-      });
-      cellIds.push(cellDfContent?.data?.objectId);
-      await this.waitfor429();
-    }
+    const cellDfContent = await this.suiClient.getDynamicFields({
+      parentId: cellDf,
+    });
+    const cellIds = cellDfContent.data.map((cell) => cell.objectId);
+
     const cellsInfo = await this.suiClient.multiGetObjects({
       ids: cellIds,
       options: {
