@@ -481,16 +481,7 @@ export class GameService {
     if (!history) {
       return;
     }
-    const players = await this.historyRepository.find({
-      where: {
-        roomId,
-        action: 'startGame',
-      },
-    });
-    const currentPlayer = players.find((p) => p.address === history.address);
-    const nextPlayer =
-      players[(players.indexOf(currentPlayer) + 1) % players.length];
-    return nextPlayer.address;
+    return history.address;
   }
 
   async waitfor429() {

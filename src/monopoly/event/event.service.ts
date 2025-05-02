@@ -247,20 +247,8 @@ export class EventService {
       timestamp: Number(event.timestampMs ?? Date.now()),
     });
 
-    const playersHistory = await this.historyRepository.find({
-      where: {
-        roomId: history.roomId,
-        action: 'startGame',
-      },
-    });
-
-    const players = playersHistory.map((p) => p.address);
-    const currentPlayer = players.find((p) => p === changeTurnEvent.player);
-    const nextPlayer =
-      players[(players.indexOf(currentPlayer) + 1) % players.length];
-
     this.gameGateway.server.to(history.roomId).emit('ChangeTurn', {
-      player: nextPlayer,
+      player: changeTurnEvent.player,
     });
   }
 

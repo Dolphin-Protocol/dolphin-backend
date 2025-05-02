@@ -212,11 +212,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       roomId: string;
     },
   ) {
-    const nextPlayer = await this.gameService.getChangeTurnByRoomId({
+    const player = await this.gameService.getChangeTurnByRoomId({
       roomId: data.roomId,
     });
     this.server.to(data.roomId).emit('ChangeTurn', {
-      player: nextPlayer,
+      player: player,
     });
   }
 }
