@@ -399,17 +399,21 @@ export class GameService {
       parentId: cellDf,
     });
     const cellIds = cellDfContent.data.map((cell) => cell.objectId);
-
     const cellsInfo = await this.suiClient.multiGetObjects({
       ids: cellIds,
       options: {
         showContent: true,
       },
     });
-    const cells = cellsInfo.map((cell) => {
-      return (cell.data?.content as any)?.fields;
-    });
-
+    const cells = cellsInfo
+      .sort(
+        (a, b) =>
+          Number((a.data?.content as any)?.fields?.name) -
+          Number((b.data?.content as any)?.fields?.name),
+      )
+      .map((cell) => {
+        return (cell.data?.content as any)?.fields;
+      });
     const playersState = histories.map((history) => {
       const balance = game.game.balanceManager.balances.contents.find(
         (b) => b.key === history.address,
