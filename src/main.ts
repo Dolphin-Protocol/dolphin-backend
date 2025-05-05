@@ -6,6 +6,7 @@ const httpsOptions = {
   key: fs.readFileSync('./server.key'),
   cert: fs.readFileSync('./server.cert'),
 };
+console.log(httpsOptions);
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
