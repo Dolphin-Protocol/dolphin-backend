@@ -17,6 +17,9 @@ import { GameService } from './game.service';
     origin: '*',
     methods: ['GET', 'POST'],
   },
+  transports: ['websocket'],
+  path: '/socket.io/',
+  secure: true,
 })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
