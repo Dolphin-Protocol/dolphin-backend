@@ -29,7 +29,7 @@
     "@nestjs/schedule": "^5.0.1",
     "@nestjs/typeorm": "^11.0.0",
     "@nestjs/websockets": "^11.0.11",
-    "@sui-dolphin/monopoly-sdk": "^0.0.4",
+    "@sui-dolphin/monopoly-sdk": "^0.0.5",
     "@types/socket.io": "^3.0.2",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",

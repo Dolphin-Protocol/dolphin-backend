@@ -207,6 +207,7 @@ export class EventService {
               paidAmount: Number(payHouseTollEvent.paidAmount),
               payee: payHouseTollEvent.payee,
               level: Number(payHouseTollEvent.level),
+              event: payHouseTollEvent,
             });
           }
         }

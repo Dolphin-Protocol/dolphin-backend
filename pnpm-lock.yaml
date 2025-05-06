@@ -36,8 +36,8 @@ importers:
         specifier: ^11.0.11
         version: 11.0.13(@nestjs/common@10.4.15(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@10.4.15)(@nestjs/platform-socket.io@11.0.13)(reflect-metadata@0.2.2)(rxjs@7.8.2)
       '@sui-dolphin/monopoly-sdk':
-        specifier: ^0.0.4
-        version: 0.0.4(@mysten/sui@1.26.1(typescript@5.8.2))
+        specifier: ^0.0.5
+        version: 0.0.5(@mysten/sui@1.26.1(typescript@5.8.2))
       '@types/socket.io':
         specifier: ^3.0.2
         version: 3.0.2
@@ -679,8 +679,8 @@ packages:
   '@sqltools/formatter@1.2.5':
     resolution: {integrity: sha512-Uy0+khmZqUrUGm5dmMqVlnvufZRSK0FbYzVgp0UMstm+F5+W2/jnEEQyc9vo1ZR/E5ZI/B1WjjoTqBqwJL6Krw==}
 
-  '@sui-dolphin/monopoly-sdk@0.0.4':
-    resolution: {integrity: sha512-yN0lGESCsUPGVE4HM3UCrH+rKkJXCtDrQKkd7ihsV5sVuXY/A9iibK3iY1GmBkBfLYljwBZyF/sGDnajgUvSyw==}
+  '@sui-dolphin/monopoly-sdk@0.0.5':
+    resolution: {integrity: sha512-bWYDgNSZA2YEDAF7PdFiAFqeHgE3jWVRNHMNRMrR8FfE1TASGgCB2rgyMcITBZz2BopzPTip+3RVxAslrKf8+A==}
     peerDependencies:
       '@mysten/sui': ^1.24.0
 
@@ -4167,7 +4167,7 @@ snapshots:
 
   '@sqltools/formatter@1.2.5': {}
 
-  '@sui-dolphin/monopoly-sdk@0.0.4(@mysten/sui@1.26.1(typescript@5.8.2))':
+  '@sui-dolphin/monopoly-sdk@0.0.5(@mysten/sui@1.26.1(typescript@5.8.2))':
     dependencies:
       '@mysten/sui': 1.26.1(typescript@5.8.2)
 
