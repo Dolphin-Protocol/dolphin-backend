@@ -242,7 +242,7 @@ export class GameService {
       }
     });
 
-    const maxRound = 4n;
+    const maxRound = 10n;
     const maxSteps = 6;
     const salary = 100n;
     const initialFunds = 2000n;
