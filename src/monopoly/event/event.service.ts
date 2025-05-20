@@ -20,6 +20,7 @@ import {
 } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/house-cell/structs';
 import { ActionRequestEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/event/structs';
 import { Action } from '@sui-dolphin/monopoly-sdk';
+import { BalanceUpdateEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/balance-manager/structs';
 
 @Injectable()
 export class EventService {
@@ -110,6 +111,32 @@ export class EventService {
     });
     for (const event of events) {
       await this.playerBuy(event);
+    }
+  }
+
+  @Cron('*/2 * * * * *')
+  async handleBalanceUpdatedEvent() {
+    const lastHistory = await this.historyRepository.findOne({
+      where: {
+        action: 'balanceUpdated',
+      },
+      order: {
+        timestamp: 'DESC',
+      },
+    });
+    const events = await this.queryEvents({
+      module: 'monopoly',
+      packageId,
+      eventType: 'BalanceUpdateEvent',
+      nextCursor: lastHistory
+        ? {
+            eventSeq: lastHistory.event_seq.toString(),
+            txDigest: lastHistory.tx_digest,
+          }
+        : undefined,
+    });
+    for (const event of events) {
+      await this.playerBalanceUpdated(event);
     }
   }
 
@@ -383,5 +410,26 @@ export class EventService {
       },
     });
     return objects;
+  }
+
+  async playerBalanceUpdated(event: SuiEvent) {
+    const balanceUpdateEvent = event.parsedJson as BalanceUpdateEvent<any>;
+    const history = await this.historyRepository.findOne({
+      where: {
+        address: balanceUpdateEvent.owner,
+      },
+      order: {
+        timestamp: 'DESC',
+      },
+    });
+    if (!history) {
+      return;
+    }
+    console.log(balanceUpdateEvent, 'balanceUpdateEvent');
+    this.gameGateway.server
+      .to(balanceUpdateEvent.owner)
+      .emit('BalanceUpdated', {
+        ...balanceUpdateEvent,
+      });
   }
 }

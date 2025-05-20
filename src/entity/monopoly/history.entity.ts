@@ -27,7 +27,8 @@ export class History {
     | 'chance'
     | 'jail'
     | 'rollDice'
-    | 'changeTurn';
+    | 'changeTurn'
+    | 'balanceUpdated';
 
   @Column()
   actionData: string;
