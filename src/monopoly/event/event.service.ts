@@ -17,10 +17,7 @@ import {
   ChangeTurnEvent,
   GameClosedEvent,
 } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/monopoly/structs';
-import {
-  BuyArgument,
-  PayHouseTollEvent,
-} from '@sui-dolphin/monopoly-sdk/_generated/monopoly/house-cell/structs';
+import { BuyArgument } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/house-cell/structs';
 import { ActionRequestEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/event/structs';
 import { Action } from '@sui-dolphin/monopoly-sdk';
 import { BalanceUpdateEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/balance-manager/structs';
@@ -276,12 +273,17 @@ export class EventService {
         for (const event of events) {
           console.log(event, 'event');
           if (event.type === `${packageId}::house_cell::PayHouseTollEvent`) {
-            const payHouseTollEvent = event.parsedJson as PayHouseTollEvent;
+            const payHouseTollEvent = event.parsedJson as {
+              player: string;
+              paid_amount: string;
+              payee: string;
+              level: string;
+            };
             console.log(payHouseTollEvent, 'payHouseTollEvent');
             this.gameGateway.server.to(history.roomId).emit('PayHouseToll', {
               player: payHouseTollEvent.player,
               houseCell,
-              paidAmount: Number(payHouseTollEvent.paidAmount),
+              paidAmount: Number(payHouseTollEvent.paid_amount),
               payee: payHouseTollEvent.payee,
               level: Number(payHouseTollEvent.level),
               event: payHouseTollEvent,
@@ -475,6 +477,18 @@ export class EventService {
     if (!history) {
       return;
     }
+    await this.historyRepository.save({
+      id: `${event.id.txDigest}-${event.id.eventSeq}`,
+      roomId: history.roomId,
+      gameObjectId: history.gameObjectId,
+      address: balanceUpdateEvent.owner,
+      clientId: history.clientId,
+      action: 'balanceUpdated',
+      actionData: JSON.stringify(event.parsedJson),
+      event_seq: Number(event.id.eventSeq),
+      tx_digest: event.id.txDigest,
+      timestamp: Number(event.timestampMs ?? Date.now()),
+    });
     console.log(balanceUpdateEvent, 'balanceUpdateEvent');
     this.gameGateway.server.to(history.roomId).emit('BalanceUpdated', {
       ...balanceUpdateEvent,
