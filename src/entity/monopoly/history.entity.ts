@@ -28,7 +28,8 @@ export class History {
     | 'jail'
     | 'rollDice'
     | 'changeTurn'
-    | 'balanceUpdated';
+    | 'balanceUpdated'
+    | 'gameClosed';
 
   @Column()
   actionData: string;

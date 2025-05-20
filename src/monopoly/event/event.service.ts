@@ -13,7 +13,10 @@ import {
 } from '@mysten/sui/client';
 import { SetupService } from '../setup/setup.service';
 import { GameService } from '../game.service';
-import { ChangeTurnEvent } from '@sui-dolphin/monopoly-sdk/_generated/monopoly/monopoly/structs';
+import {
+  ChangeTurnEvent,
+  GameClosedEvent,
+} from '@sui-dolphin/monopoly-sdk/_generated/monopoly/monopoly/structs';
 import {
   BuyArgument,
   PayHouseTollEvent,
@@ -63,7 +66,7 @@ export class EventService {
   }
 
   @Cron('*/2 * * * * *')
-  async handleGameStartEvent() {
+  async handleChangeTurnEvent_() {
     const lastHistory = await this.historyRepository.findOne({
       where: {
         action: 'changeTurn',
@@ -85,6 +88,27 @@ export class EventService {
     });
     for (const event of events) {
       await this.handleChangeTurnEvent(event);
+    }
+    const lastPlayer = await this.historyRepository.findOne({
+      where: {
+        action: 'startGame',
+      },
+      order: {
+        timestamp: 'DESC',
+      },
+    });
+    if (!lastPlayer) {
+      return;
+    }
+    const turns = await this.historyRepository.find({
+      where: {
+        action: 'changeTurn',
+        address: lastPlayer.address,
+        roomId: lastPlayer.roomId,
+      },
+    });
+    if (turns.length >= 10) {
+      await this.gameService.closeGame(lastPlayer.address);
     }
   }
 
@@ -125,7 +149,7 @@ export class EventService {
       },
     });
     const events = await this.queryEvents({
-      module: 'monopoly',
+      module: 'balance_manager',
       packageId,
       eventType: 'BalanceUpdateEvent',
       nextCursor: lastHistory
@@ -137,6 +161,32 @@ export class EventService {
     });
     for (const event of events) {
       await this.playerBalanceUpdated(event);
+    }
+  }
+
+  @Cron('*/2 * * * * *')
+  async handleGameClosedEvent() {
+    const lastHistory = await this.historyRepository.findOne({
+      where: {
+        action: 'gameClosed',
+      },
+      order: {
+        timestamp: 'DESC',
+      },
+    });
+    const events = await this.queryEvents({
+      module: 'monopoly',
+      packageId,
+      eventType: 'GameClosedEvent',
+      nextCursor: lastHistory
+        ? {
+            eventSeq: lastHistory.event_seq.toString(),
+            txDigest: lastHistory.tx_digest,
+          }
+        : undefined,
+    });
+    for (const event of events) {
+      await this.playerClosedGame(event);
     }
   }
 
@@ -426,10 +476,24 @@ export class EventService {
       return;
     }
     console.log(balanceUpdateEvent, 'balanceUpdateEvent');
-    this.gameGateway.server
-      .to(balanceUpdateEvent.owner)
-      .emit('BalanceUpdated', {
-        ...balanceUpdateEvent,
-      });
+    this.gameGateway.server.to(history.roomId).emit('BalanceUpdated', {
+      ...balanceUpdateEvent,
+    });
+  }
+
+  async playerClosedGame(event: SuiEvent) {
+    const gameClosedEvent = event.parsedJson as GameClosedEvent;
+    const history = await this.historyRepository.findOne({
+      where: {
+        gameObjectId: gameClosedEvent.game,
+      },
+    });
+    if (!history) {
+      return;
+    }
+    this.gameGateway.server.to(history.roomId).emit('GameClosed', {
+      game: gameClosedEvent.game,
+      winners: gameClosedEvent.winners,
+    });
   }
 }

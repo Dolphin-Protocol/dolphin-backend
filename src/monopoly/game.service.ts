@@ -495,4 +495,17 @@ export class GameService {
       }, 100);
     });
   }
+
+  async closeGame(player: string) {
+    const { admin } = this.setupService.loadKeypair();
+
+    const game = await this.setupService.getGameByPlayerAddress(player);
+    if (!game) {
+      return;
+    }
+    const ptb = game.closeGame(player, []);
+    await executeTransaction(this.suiClient, admin, ptb, {
+      showEvents: true,
+    });
+  }
 }
