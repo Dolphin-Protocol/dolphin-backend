@@ -503,7 +503,17 @@ export class GameService {
     if (!game) {
       return;
     }
-    const ptb = game.closeGame(player, []);
+    const vec = [...Array(20).keys()];
+    const cells: string[] = [];
+    vec.forEach((idx) => {
+      if (idx % 4 == 0) {
+        // idle cell
+        cells.push(Cell.$typeName);
+      } else {
+        cells.push(HouseCell.$typeName);
+      }
+    });
+    const ptb = game.closeGame(player, cells);
     await executeTransaction(this.suiClient, admin, ptb, {
       showEvents: true,
     });
