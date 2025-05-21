@@ -486,7 +486,7 @@ export class EventService {
     }
     console.log(balanceUpdateEvent, 'balanceUpdateEvent');
 
-    await this.historyRepository.save({
+    const result = await this.historyRepository.save({
       id: `${event.id.txDigest}-${event.id.eventSeq}`,
       roomId: history.roomId,
       gameObjectId: history.gameObjectId,
@@ -498,6 +498,7 @@ export class EventService {
       tx_digest: event.id.txDigest,
       timestamp: Number(event.timestampMs ?? Date.now()),
     });
+    console.log(result, 'result');
     this.gameGateway.server.to(history.roomId).emit('BalanceUpdated', {
       ...balanceUpdateEvent,
     });
