@@ -187,6 +187,8 @@ export class EventService {
           }
         : undefined,
     });
+    console.log(events, 'events');
+    console.log('game closed event');
     for (const event of events) {
       await this.playerClosedGame(event);
     }
@@ -519,6 +521,18 @@ export class EventService {
     if (!history) {
       return;
     }
+    await this.historyRepository.save({
+      id: `${event.id.txDigest}-${event.id.eventSeq}`,
+      roomId: history.roomId,
+      gameObjectId: history.gameObjectId,
+      address: gameClosedEvent.winners[0],
+      clientId: history.clientId,
+      action: 'gameClosed',
+      actionData: JSON.stringify(event.parsedJson),
+      event_seq: Number(event.id.eventSeq),
+      tx_digest: event.id.txDigest,
+      timestamp: Number(event.timestampMs ?? Date.now()),
+    });
     this.gameGateway.server.to(history.roomId).emit('GameClosed', {
       game: gameClosedEvent.game,
       winners: gameClosedEvent.winners,
