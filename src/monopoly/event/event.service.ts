@@ -242,7 +242,12 @@ export class EventService {
     // if action is buy or upgrade, resolve the emit action request event of the transaction to the frontend
     // if action is other, do nothing
     if (isHouseCell) {
-      if (!hasOwner) {
+      if (
+        !hasOwner ||
+        (hasOwner &&
+          houseCell?.owner?.toLowerCase() ===
+            rollDiceEvent.player?.toLowerCase())
+      ) {
         const events = await this.gameService.resolvePlayerMove(
           rollDiceEvent.player,
           Action.BUY_OR_UPGRADE,
