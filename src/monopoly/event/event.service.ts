@@ -67,7 +67,7 @@ export class EventService {
     }
   }
 
-  @Cron('*/2 * * * * *')
+  @Cron('*/3 * * * * *')
   async handleChangeTurnEvent_() {
     const lastHistory = await this.historyRepository.findOne({
       where: {
@@ -114,7 +114,7 @@ export class EventService {
     }
   }
 
-  @Cron('*/3 * * * * *')
+  @Cron('*/4 * * * * *')
   async handlePlayerBuyEvent() {
     const lastHistory = await this.historyRepository.findOne({
       where: {
@@ -140,7 +140,7 @@ export class EventService {
     }
   }
 
-  @Cron('*/2 * * * * *')
+  @Cron('*/5 * * * * *')
   async handleBalanceUpdatedEvent() {
     const lastHistory = await this.historyRepository.findOne({
       where: {
@@ -166,7 +166,7 @@ export class EventService {
     }
   }
 
-  @Cron('*/2 * * * * *')
+  @Cron('*/5 * * * * *')
   async handleGameClosedEvent() {
     const lastHistory = await this.historyRepository.findOne({
       where: {
