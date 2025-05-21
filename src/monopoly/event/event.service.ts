@@ -4,7 +4,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GameGateway } from '../game.gateway';
 import { History } from '../../entity/monopoly/history.entity';
-import { HOUSE_CELL_SIZE, packageId, upgradedPackageId } from '../constants';
+import {
+  HOUSE_CELL_SIZE,
+  monopolyType,
+  packageId,
+  upgradedPackageId,
+} from '../constants';
 import {
   PaginatedEvents,
   PaginatedObjectsResponse,
@@ -148,7 +153,7 @@ export class EventService {
     const events = await this.queryEvents({
       module: 'balance_manager',
       packageId,
-      eventType: 'BalanceUpdateEvent',
+      eventType: `BalanceUpdateEvent<${monopolyType}>`,
       nextCursor: lastHistory
         ? {
             eventSeq: lastHistory.event_seq.toString(),
@@ -465,7 +470,9 @@ export class EventService {
   }
 
   async playerBalanceUpdated(event: SuiEvent) {
+    console.log('playerBalanceUpdated');
     const balanceUpdateEvent = event.parsedJson as BalanceUpdateEvent<any>;
+    console.log(balanceUpdateEvent, 'balanceUpdateEvent');
     const history = await this.historyRepository.findOne({
       where: {
         address: balanceUpdateEvent.owner,
@@ -477,6 +484,8 @@ export class EventService {
     if (!history) {
       return;
     }
+    console.log(balanceUpdateEvent, 'balanceUpdateEvent');
+
     await this.historyRepository.save({
       id: `${event.id.txDigest}-${event.id.eventSeq}`,
       roomId: history.roomId,
@@ -489,7 +498,6 @@ export class EventService {
       tx_digest: event.id.txDigest,
       timestamp: Number(event.timestampMs ?? Date.now()),
     });
-    console.log(balanceUpdateEvent, 'balanceUpdateEvent');
     this.gameGateway.server.to(history.roomId).emit('BalanceUpdated', {
       ...balanceUpdateEvent,
     });

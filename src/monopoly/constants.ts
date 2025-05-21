@@ -2,6 +2,8 @@ import { SharedObjectInput } from '@sui-dolphin/monopoly-sdk';
 
 export const packageId =
   '0xec7627b98bf9bb171f28e089546f007f76e9f7aedacddf8d93e89ea75f8cb721';
+export const monopolyType =
+  '0xec7627b98bf9bb171f28e089546f007f76e9f7aedacddf8d93e89ea75f8cb721::monopoly::Monopoly';
 export const upgradedPackageId =
   '0x827549ecf9fa8f3a08c331babbd0fca2236a20f8719cb0199fe229947d257043';
 
